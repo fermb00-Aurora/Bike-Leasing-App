@@ -33,29 +33,29 @@ st.title('Bike Leasing Company - Data Analysis & Insights')
 plt.style.use('dark_background')
 sns.set(style="darkgrid")
 
-# Dataset Overview
-st.sidebar.header('Search Settings')
-date_to_monitor = st.sidebar.date_input('Date to monitor', pd.to_datetime('2011-12-01'))
-time_range = st.sidebar.slider('Select time of day range', 0, 23, (7, 19), format='%d hrs')
-caller_type = st.sidebar.radio('Which caller type', ['All', 'Subscribers', 'DDS', 'Major Accounts', 'Other'])
-team_option = st.sidebar.selectbox('Select the team(s) to report on', ['All Teams', 'Team A', 'Team B', 'Team C'])
-call_direction = st.sidebar.selectbox('Call direction', ['Any', 'Inbound', 'Outbound'])
-st.sidebar.checkbox('Ignore translation service calls')
-st.sidebar.checkbox('Select only calls with repeated greetings')
-sort_outliers_by = st.sidebar.selectbox('Sort outliers by', ['Agent', 'Value'])
+# Dataset Overview - Adding filters and control options
+st.sidebar.header('Filter Options')
+selected_date = st.sidebar.date_input('Select Analysis Date', pd.to_datetime('2011-12-01'))
+time_range = st.sidebar.slider('Business Hours (Hour Range)', 6, 23, (9, 18))
+selected_season = st.sidebar.multiselect('Customer Demand Seasonality', options=[1, 2, 3, 4], default=[1, 2, 3, 4], format_func=lambda x: ['Spring', 'Summer', 'Fall', 'Winter'][x-1])
+weather_condition = st.sidebar.multiselect('Weather Conditions Impact', options=[1, 2, 3, 4], default=[1, 2, 3, 4], format_func=lambda x: ['Clear', 'Mist', 'Light Snow/Rain', 'Heavy Rain/Snow'][x-1])
+
+# Filtering the dataset based on user inputs
+filtered_data = bike_data[(bike_data['season'].isin(selected_season)) & (bike_data['weathersit'].isin(weather_condition))]
+filtered_data = filtered_data[(filtered_data['hr'] >= time_range[0]) & (filtered_data['hr'] <= time_range[1])]
 
 # Tabs for better organization
-tabs = st.tabs(['Data Overview', 'EDA', 'Feature Engineering', 'Correlation Analysis', 'Prediction Model'])
+tabs = st.tabs(['Data Overview', 'Exploratory Analysis', 'Feature Engineering', 'Correlation Analysis', 'Prediction Model'])
 
 # Data Overview Tab
 with tabs[0]:
     st.header('Dataset Overview')
-    st.write(bike_data.head())
+    st.write(filtered_data.head())
 
     # Comprehensive Data Check
     st.subheader('Data Quality Report')
-    missing_values = bike_data.isnull().sum()
-    missing_values_percent = (missing_values / len(bike_data)) * 100
+    missing_values = filtered_data.isnull().sum()
+    missing_values_percent = (missing_values / len(filtered_data)) * 100
     st.write('**Missing Values by Column**')
     missing_df = pd.DataFrame({'Missing Values': missing_values, 'Percentage': missing_values_percent})
     st.write(missing_df)
@@ -68,7 +68,7 @@ with tabs[0]:
     st.pyplot(fig)
 
     st.write('**Data Types Overview**')
-    st.write(bike_data.dtypes)
+    st.write(filtered_data.dtypes)
 
     st.write('''Each data type represents the format of the data in the respective column:
     - **int64**: Represents integer values, commonly used for categorical or count data.
@@ -76,43 +76,56 @@ with tabs[0]:
     - **object**: Represents text or string data, commonly used for date or categorical descriptions.
     Understanding the data types helps in determining the appropriate preprocessing steps, such as scaling numerical features or encoding categorical values.''')
 
-# EDA Tab
+# Exploratory Analysis Tab
 with tabs[1]:
     st.header('Exploratory Data Analysis')
     st.subheader('Descriptive Statistics for Numeric Columns')
-    st.write(bike_data.describe())
+    st.write(filtered_data.describe())
 
-    st.subheader('Column Analysis - Normalization, Missing Values, and Distribution')
-    for column in bike_data.columns:
+    st.subheader('Column Analysis - Distribution and Insights')
+    for column in filtered_data.columns:
         st.markdown(f'### {column} Analysis')
-        if bike_data[column].isnull().sum() > 0:
-            st.warning(f'This column contains {bike_data[column].isnull().sum()} missing values.')
-        if bike_data[column].dtype in [np.float64, np.int64]:
+        if filtered_data[column].isnull().sum() > 0:
+            st.warning(f'This column contains {filtered_data[column].isnull().sum()} missing values.')
+        if filtered_data[column].dtype in [np.float64, np.int64]:
             st.write(f'Descriptive Stats:')
-            st.write(bike_data[column].describe())
+            st.write(filtered_data[column].describe())
             # Distribution Plot
-            if bike_data[column].nunique() > 10:
+            if filtered_data[column].nunique() > 10:
                 fig, ax = plt.subplots()
-                sns.histplot(bike_data[column], kde=True, ax=ax)
+                sns.histplot(filtered_data[column], kde=True, ax=ax)
                 ax.set_title(f'{column} Distribution')
                 st.pyplot(fig)
             else:
                 fig, ax = plt.subplots()
-                sns.countplot(x=bike_data[column], ax=ax, palette='viridis')
+                sns.countplot(x=filtered_data[column], ax=ax, palette='viridis')
                 ax.set_title(f'{column} Count Plot')
                 st.pyplot(fig)
         else:
-            st.write(f'Unique Values in {column}: {bike_data[column].unique()}')
+            st.write(f'Unique Values in {column}: {filtered_data[column].unique()}')
+
+    # Additional Graphs for EDA
+    st.subheader('Seasonal Bike Rentals')
+    fig = px.bar(filtered_data, x='season', y='cnt', color='season', title='Total Bike Rentals by Season', labels={'season': 'Season', 'cnt': 'Bike Rentals'}, barmode='group', color_discrete_sequence=px.colors.qualitative.Set2)
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.subheader('Bike Rentals by Day of the Week')
+    fig = px.bar(filtered_data, x='weekday', y='cnt', color='weekday', title='Total Bike Rentals by Day of the Week', labels={'weekday': 'Day of the Week', 'cnt': 'Bike Rentals'}, barmode='group', color_discrete_sequence=px.colors.qualitative.Set1)
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.subheader('Bike Rentals by Weather Situation')
+    fig = px.histogram(filtered_data, x='weathersit', y='cnt', color='weathersit', title='Bike Rentals by Weather Situation', labels={'weathersit': 'Weather Situation', 'cnt': 'Bike Rentals'}, barmode='group', color_discrete_sequence=px.colors.qualitative.Set3)
+    st.plotly_chart(fig, use_container_width=True)
 
 # Feature Engineering Tab
 with tabs[2]:
     st.header('Feature Engineering')
-    bike_data['dteday'] = pd.to_datetime(bike_data['dteday'])
-    bike_data['year'] = bike_data['dteday'].dt.year
-    bike_data['month'] = bike_data['dteday'].dt.month
-    bike_data['day'] = bike_data['dteday'].dt.day
-    bike_data['dayofweek'] = bike_data['dteday'].dt.dayofweek
-    bike_data['is_holiday_or_weekend'] = ((bike_data['holiday'] == 1) | (bike_data['workingday'] == 0)).astype(int)
+    filtered_data['dteday'] = pd.to_datetime(filtered_data['dteday'])
+    filtered_data['year'] = filtered_data['dteday'].dt.year
+    filtered_data['month'] = filtered_data['dteday'].dt.month
+    filtered_data['day'] = filtered_data['dteday'].dt.day
+    filtered_data['dayofweek'] = filtered_data['dteday'].dt.dayofweek
+    filtered_data['is_holiday_or_weekend'] = ((filtered_data['holiday'] == 1) | (filtered_data['workingday'] == 0)).astype(int)
 
     st.subheader('New Features Added')
     st.write('Added `year`, `month`, `day`, `dayofweek`, and `is_holiday_or_weekend` features for further analysis.')
@@ -121,33 +134,33 @@ with tabs[2]:
 with tabs[3]:
     st.header('Correlation Analysis')
     st.subheader('Interactive Correlation Heatmap')
-    corr_matrix = bike_data.corr()
+    corr_matrix = filtered_data.corr()
     fig = px.imshow(corr_matrix, color_continuous_scale='viridis', title='Feature Correlation Heatmap', aspect='auto')
     fig.update_traces(hovertemplate='%{x}: %{y} <br>Correlation: %{z:.2f}')
     fig.update_layout(coloraxis_showscale=True, coloraxis_colorbar=dict(title='Correlation'))
     st.plotly_chart(fig, use_container_width=True)
 
-# Interactive Analysis - Bike Rentals by Feature
+    # Interactive Analysis - Bike Rentals by Feature
     st.subheader('Interactive Visuals: Bike Rentals Analysis')
     col1, col2 = st.columns(2)
 
     with col1:
         st.subheader('Bike Rentals by Hour')
-        fig = px.box(bike_data, x='hr', y='cnt', title='Bike Rentals by Hour', color_discrete_sequence=['#2ca02c'])
+        fig = px.box(filtered_data, x='hr', y='cnt', title='Bike Rentals by Hour', color_discrete_sequence=['#2ca02c'])
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
         st.subheader('Bike Rentals by Season')
-        fig = px.box(bike_data, x='season', y='cnt', title='Bike Rentals by Season', color_discrete_sequence=['#2ca02c'])
+        fig = px.box(filtered_data, x='season', y='cnt', title='Bike Rentals by Season', color_discrete_sequence=['#2ca02c'])
         st.plotly_chart(fig, use_container_width=True)
 
     st.subheader('Bike Rentals by Weather Situation')
-    fig = px.box(bike_data, x='weathersit', y='cnt', title='Bike Rentals by Weather Situation', color_discrete_sequence=['#2ca02c'])
+    fig = px.box(filtered_data, x='weathersit', y='cnt', title='Bike Rentals by Weather Situation', color_discrete_sequence=['#2ca02c'])
     st.plotly_chart(fig, use_container_width=True)
 
-# Data Table for Detailed Information
+    # Data Table for Detailed Information
     st.subheader('Detailed Data View')
-    st.dataframe(bike_data)
+    st.dataframe(filtered_data)
 
 # Prediction Model Tab
 with tabs[4]:
@@ -160,8 +173,8 @@ with tabs[4]:
     ]
 
     # Splitting Features and Target (Part II: Prediction Model)
-    X = bike_data[features].copy()
-    y = bike_data[target]
+    X = filtered_data[features].copy()
+    y = filtered_data[target]
 
     # Scaling Numerical Features (Part II: Prediction Model)
     scaler = StandardScaler()
@@ -182,14 +195,14 @@ with tabs[4]:
     yr = st.sidebar.selectbox('Year', [0, 1], format_func=lambda x: '2011' if x == 0 else '2012')
     mnth = st.sidebar.slider('Month', 1, 12, 6)
     hr = st.sidebar.slider('Hour', 0, 23, 12)
-    holiday = st.sidebar.selectbox('Holiday', [0, 1], format_func=lambda x: 'No' if x == 0 else 'Yes')
-    weekday = st.sidebar.slider('Weekday (0 = Sunday)', 0, 6, 0)
-    workingday = st.sidebar.selectbox('Working Day', [0, 1], format_func=lambda x: 'No' if x == 0 else 'Yes')
-    weathersit = st.sidebar.selectbox('Weather Situation', [1, 2, 3, 4], format_func=lambda x: ['Clear', 'Mist', 'Light Snow/Rain', 'Heavy Rain/Snow'][x-1])
-    temp = st.sidebar.slider('Temperature (Normalized)', 0.0, 1.0, 0.5)
-    atemp = st.sidebar.slider('Feeling Temperature (Normalized)', 0.0, 1.0, 0.5)
-    hum = st.sidebar.slider('Humidity (Normalized)', 0.0, 1.0, 0.5)
-    windspeed = st.sidebar.slider('Windspeed (Normalized)', 0.0, 1.0, 0.2)
+    holiday = st.sidebar.selectbox('Holiday Impact', [0, 1], format_func=lambda x: 'No' if x == 0 else 'Yes')
+    weekday = st.sidebar.selectbox('Day of the Week', [0, 1, 2, 3, 4, 5, 6], format_func=lambda x: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][x])
+    workingday = st.sidebar.selectbox('Working Day Indicator', [0, 1], format_func=lambda x: 'No' if x == 0 else 'Yes')
+    weathersit = st.sidebar.selectbox('Weather Conditions', [1, 2, 3, 4], format_func=lambda x: ['Clear', 'Mist', 'Light Snow/Rain', 'Heavy Rain/Snow'][x-1])
+    temp = st.sidebar.slider('Average Temperature (Normalized Scale)', 0.0, 1.0, 0.5)
+    atemp = st.sidebar.slider('Perceived Temperature (Normalized Scale)', 0.0, 1.0, 0.5)
+    hum = st.sidebar.slider('Humidity Level (Normalized Scale)', 0.0, 1.0, 0.5)
+    windspeed = st.sidebar.slider('Wind Speed (Normalized Scale)', 0.0, 1.0, 0.3)
     is_holiday_or_weekend = st.sidebar.selectbox('Holiday or Weekend', [0, 1], format_func=lambda x: 'No' if x == 0 else 'Yes')
 
     # Creating a DataFrame for the Input Features
@@ -231,12 +244,30 @@ with tabs[4]:
     st.subheader('Predicted Number of Bike Rentals')
     st.write(f'We predict that there will be **{int(prediction)}** bike rentals for the given conditions.')
 
+    # Improved Visuals for Prediction Result
+    st.subheader('Prediction Visualization')
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=prediction,
+        title={'text': "Predicted Bike Rentals"},
+        gauge={'axis': {'range': [0, max(y)]},
+               'bar': {'color': "#2ca02c"},
+               'steps': [
+                   {'range': [0, max(y) * 0.5], 'color': "lightgray"},
+                   {'range': [max(y) * 0.5, max(y)], 'color': "gray"}
+               ],
+               'threshold': {'line': {'color': "red", 'width': 4}, 'thickness': 0.75, 'value': prediction}}
+    ))
+    st.plotly_chart(fig, use_container_width=True)
+
     # Option to Save Prediction
     if st.button('Save Prediction'):
         prediction_record = input_data.copy()
         prediction_record['predicted_rentals'] = prediction
         prediction_record.to_csv('saved_predictions.csv', mode='a', header=False, index=False)
         st.success('Prediction saved successfully!')
+
+
 
 
 
