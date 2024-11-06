@@ -12,7 +12,7 @@ import plotly.express as px
 
 # Load the Dataset (Part I: Exploratory Data Analysis)
 # Assuming the dataset 'hour.csv' is in the same directory
-file_path = os.path.join(os.path.dirname(__file__), 'hour.csv')
+file_path = 'hour.csv'
 try:
     bike_data = pd.read_csv(file_path)
 except FileNotFoundError:
@@ -54,6 +54,12 @@ st.pyplot(fig)
 
 st.write('**Data Types Overview**')
 st.write(bike_data.dtypes)
+
+st.write('''Each data type represents the format of the data in the respective column:
+- **int64**: Represents integer values, commonly used for categorical or count data.
+- **float64**: Represents floating-point numbers, used for continuous numerical values like temperature or windspeed.
+- **object**: Represents text or string data, commonly used for date or categorical descriptions.
+Understanding the data types helps in determining the appropriate preprocessing steps, such as scaling numerical features or encoding categorical values.''')
 
 # Normalization Check - Summary Stats
 st.subheader('Descriptive Statistics for Numeric Columns')
@@ -146,10 +152,9 @@ rf_model = RandomForestRegressor(n_estimators=100, random_state=42)
 rf_model.fit(X, y)
 
 # Save the Model and Scaler (Part II: Prediction Model)
-model_dir = os.path.join(os.path.dirname(__file__), 'models')
-os.makedirs(model_dir, exist_ok=True)
-joblib.dump(rf_model, os.path.join(model_dir, 'rf_model.pkl'))
-joblib.dump(scaler, os.path.join(model_dir, 'scaler.pkl'))
+
+joblib.dump(rf_model, 'rf_model.pkl')
+joblib.dump(scaler, 'scaler.pkl')
 
 # Streamlit App: Title and Sidebar for User Input (Part III: Streamlit Dashboard)
 st.title('Bike Sharing Analysis and Prediction Tool - Professional Dashboard')
@@ -164,48 +169,6 @@ holiday = st.sidebar.selectbox('Holiday', [0, 1], format_func=lambda x: 'No' if 
 weekday = st.sidebar.slider('Weekday (0 = Sunday)', 0, 6, 0)
 workingday = st.sidebar.selectbox('Working Day', [0, 1], format_func=lambda x: 'No' if x == 0 else 'Yes')
 weathersit = st.sidebar.selectbox('Weather Situation', [1, 2, 3, 4], format_func=lambda x: ['Clear', 'Mist', 'Light Snow/Rain', 'Heavy Rain/Snow'][x-1])
-temp = st.sidebar.slider('Temperature (Normalized)', 0.0, 1.0, 0.5)
-atemp = st.sidebar.slider('Feeling Temperature (Normalized)', 0.0, 1.0, 0.5)
-hum = st.sidebar.slider('Humidity (Normalized)', 0.0, 1.0, 0.5)
-windspeed = st.sidebar.slider('Windspeed (Normalized)', 0.0, 1.0, 0.2)
-is_holiday_or_weekend = st.sidebar.selectbox('Holiday or Weekend', [0, 1], format_func=lambda x: 'No' if x == 0 else 'Yes')
+temp = st.sidebar.slider
 
-# Creating a DataFrame for the Input Features (Part III: Streamlit Dashboard)
-input_data = pd.DataFrame({
-    'season': [season],
-    'yr': [yr],
-    'mnth': [mnth],
-    'hr': [hr],
-    'holiday': [holiday],
-    'weekday': [weekday],
-    'workingday': [workingday],
-    'weathersit': [weathersit],
-    'temp': [temp],
-    'atemp': [atemp],
-    'hum': [hum],
-    'windspeed': [windspeed],
-    'is_holiday_or_weekend': [is_holiday_or_weekend]
-})
-
-# Load Model and Scaler (Part III: Streamlit Dashboard)
-try:
-    rf_model = joblib.load(os.path.join(model_dir, 'rf_model.pkl'))
-    scaler = joblib.load(os.path.join(model_dir, 'scaler.pkl'))
-except FileNotFoundError:
-    st.error("Model files not found. Please ensure the model has been trained and saved correctly.")
-    st.stop()
-
-# Scale Numerical Features for Input Data (Part III: Streamlit Dashboard)
-try:
-    input_data[numerical_features] = scaler.transform(input_data[numerical_features])
-except ValueError:
-    st.error("Input values are out of range for the scaler. Please adjust the inputs.")
-    st.stop()
-
-# Make Prediction (Part III: Streamlit Dashboard)
-prediction = rf_model.predict(input_data)[0]
-
-# Display the Prediction (Part III: Streamlit Dashboard)
-st.subheader('Predicted Number of Bike Rentals')
-st.write(f'We predict that there will be **{int(prediction)}** bike rentals for the given conditions.')
 
