@@ -13,7 +13,17 @@ import plotly.express as px
 # Load the Dataset (Part I: Exploratory Data Analysis)
 # Assuming the dataset 'hour.csv' is in the same directory
 file_path = os.path.join(os.path.dirname(__file__), 'hour.csv')
-bike_data = pd.read_csv(file_path)
+try:
+    bike_data = pd.read_csv(file_path)
+except FileNotFoundError:
+    st.error("Dataset 'hour.csv' not found. Please ensure the file is in the correct directory.")
+    st.stop()
+except pd.errors.EmptyDataError:
+    st.error("Dataset 'hour.csv' is empty. Please provide a valid dataset.")
+    st.stop()
+except Exception as e:
+    st.error(f"An error occurred while loading the dataset: {e}")
+    st.stop()
 
 # Exploratory Data Analysis (EDA) - Professional Analysis
 st.set_page_config(page_title='Bike Company Dashboard', page_icon='🚲', layout='wide', initial_sidebar_state='expanded')
@@ -30,8 +40,17 @@ st.write(bike_data.head())
 # Comprehensive Data Check
 st.subheader('Data Quality Report')
 missing_values = bike_data.isnull().sum()
+missing_values_percent = (missing_values / len(bike_data)) * 100
 st.write('**Missing Values by Column**')
-st.write(missing_values)
+missing_df = pd.DataFrame({'Missing Values': missing_values, 'Percentage': missing_values_percent})
+st.write(missing_df)
+
+# Visualize Missing Values
+fig, ax = plt.subplots(figsize=(10, 5))
+sns.barplot(x=missing_values.index, y=missing_values.values, ax=ax, palette='viridis')
+ax.set_title('Missing Values by Column')
+ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+st.pyplot(fig)
 
 st.write('**Data Types Overview**')
 st.write(bike_data.dtypes)
@@ -50,10 +69,16 @@ for column in bike_data.columns:
         st.write(f'Descriptive Stats:')
         st.write(bike_data[column].describe())
         # Distribution Plot
-        fig, ax = plt.subplots()
-        sns.histplot(bike_data[column], kde=True, ax=ax)
-        ax.set_title(f'{column} Distribution')
-        st.pyplot(fig)
+        if bike_data[column].nunique() > 10:
+            fig, ax = plt.subplots()
+            sns.histplot(bike_data[column], kde=True, ax=ax)
+            ax.set_title(f'{column} Distribution')
+            st.pyplot(fig)
+        else:
+            fig, ax = plt.subplots()
+            sns.countplot(x=bike_data[column], ax=ax, palette='viridis')
+            ax.set_title(f'{column} Count Plot')
+            st.pyplot(fig)
     else:
         st.write(f'Unique Values in {column}: {bike_data[column].unique()}')
 
@@ -73,7 +98,7 @@ st.subheader('Interactive Correlation Heatmap')
 corr_matrix = bike_data.corr()
 fig = px.imshow(corr_matrix, color_continuous_scale='viridis', title='Feature Correlation Heatmap', aspect='auto')
 fig.update_traces(hovertemplate='%{x}: %{y} <br>Correlation: %{z:.2f}')
-fig.update_layout(coloraxis_showscale=False)
+fig.update_layout(coloraxis_showscale=True, coloraxis_colorbar=dict(title='Correlation'))
 st.plotly_chart(fig, use_container_width=True)
 
 # Interactive Analysis - Bike Rentals by Feature
@@ -108,7 +133,7 @@ features = [
 ]
 
 # Splitting Features and Target (Part II: Prediction Model)
-X = bike_data[features]
+X = bike_data[features].copy()
 y = bike_data[target]
 
 # Scaling Numerical Features (Part II: Prediction Model)
@@ -121,8 +146,10 @@ rf_model = RandomForestRegressor(n_estimators=100, random_state=42)
 rf_model.fit(X, y)
 
 # Save the Model and Scaler (Part II: Prediction Model)
-joblib.dump(rf_model, 'rf_model.pkl')
-joblib.dump(scaler, 'scaler.pkl')
+model_dir = os.path.join(os.path.dirname(__file__), 'models')
+os.makedirs(model_dir, exist_ok=True)
+joblib.dump(rf_model, os.path.join(model_dir, 'rf_model.pkl'))
+joblib.dump(scaler, os.path.join(model_dir, 'scaler.pkl'))
 
 # Streamlit App: Title and Sidebar for User Input (Part III: Streamlit Dashboard)
 st.title('Bike Sharing Analysis and Prediction Tool - Professional Dashboard')
@@ -161,11 +188,19 @@ input_data = pd.DataFrame({
 })
 
 # Load Model and Scaler (Part III: Streamlit Dashboard)
-rf_model = joblib.load('rf_model.pkl')
-scaler = joblib.load('scaler.pkl')
+try:
+    rf_model = joblib.load(os.path.join(model_dir, 'rf_model.pkl'))
+    scaler = joblib.load(os.path.join(model_dir, 'scaler.pkl'))
+except FileNotFoundError:
+    st.error("Model files not found. Please ensure the model has been trained and saved correctly.")
+    st.stop()
 
 # Scale Numerical Features for Input Data (Part III: Streamlit Dashboard)
-input_data[numerical_features] = scaler.transform(input_data[numerical_features])
+try:
+    input_data[numerical_features] = scaler.transform(input_data[numerical_features])
+except ValueError:
+    st.error("Input values are out of range for the scaler. Please adjust the inputs.")
+    st.stop()
 
 # Make Prediction (Part III: Streamlit Dashboard)
 prediction = rf_model.predict(input_data)[0]
@@ -173,3 +208,4 @@ prediction = rf_model.predict(input_data)[0]
 # Display the Prediction (Part III: Streamlit Dashboard)
 st.subheader('Predicted Number of Bike Rentals')
 st.write(f'We predict that there will be **{int(prediction)}** bike rentals for the given conditions.')
+
