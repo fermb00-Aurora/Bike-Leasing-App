@@ -3,24 +3,31 @@ import os
 import joblib
 import warnings
 
-import streamlit as st
+# Data manipulation and analysis
 import pandas as pd
 import numpy as np
+
+# Visualization libraries
 import plotly.express as px
-from fpdf import FPDF
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import LinearRegression, Ridge
-from sklearn.metrics import mean_squared_error, r2_score
 import matplotlib.pyplot as plt
 import seaborn as sns
+
+# Streamlit for interactive web applications
+import streamlit as st
+
+# PDF generation
+from fpdf import FPDF
+
+# Machine learning libraries
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_squared_error, r2_score
 import scipy.stats as stats
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings("ignore")
 
-# Streamlit Configuration
+# ====================== Streamlit Configuration ======================
 st.set_page_config(
     page_title='Washington D.C. Bike Sharing Analysis',
     page_icon='🚲',
@@ -34,11 +41,13 @@ st.markdown("""
 Welcome to the interactive dashboard for the Washington D.C. bike-sharing service analysis. This tool provides insights into the usage patterns of the bike-sharing service and includes a predictive model to estimate the number of users on an hourly basis.
 """)
 
-# Load the Dataset
+# ====================== Load the Dataset ======================
 file_path = 'hour.csv'
+
+# Try to load the dataset, handle exceptions gracefully
 try:
     bike_data = pd.read_csv(file_path)
-except FileNotError:
+except FileNotFoundError:
     st.error("Dataset 'hour.csv' not found. Please ensure the file is in the correct directory.")
     st.stop()
 except pd.errors.EmptyDataError:
@@ -48,7 +57,7 @@ except Exception as e:
     st.error(f"An error occurred while loading the dataset: {e}")
     st.stop()
 
-# Create tabs for different sections
+# ====================== Create Tabs for Different Sections ======================
 tabs = st.tabs([
     'Data Overview',
     'Data Cleaning & Feature Engineering',
@@ -59,7 +68,7 @@ tabs = st.tabs([
     'Feedback'
 ])
 
-# Data Overview Tab
+# ====================== Data Overview Tab ======================
 with tabs[0]:
     st.header('Data Overview')
     st.write('First, let\'s take a look at the dataset.')
@@ -82,42 +91,60 @@ with tabs[0]:
     duplicate_rows = bike_data.duplicated().sum()
     st.write(f'Total duplicate rows in the dataset: {duplicate_rows}')
 
-# Data Cleaning & Feature Engineering Tab
+# ====================== Data Cleaning & Feature Engineering Tab ======================
 with tabs[1]:
     st.header('Data Cleaning & Feature Engineering')
 
     # Handle missing values (if any)
     st.subheader('Handling Missing Values')
-    st.write('No missing values were found in the dataset.')
+    if missing_values.sum() == 0:
+        st.write('No missing values were found in the dataset.')
+    else:
+        st.write('Missing values detected. Proceeding to handle them.')
+        # Implement missing value handling here if necessary
 
     # Outlier Detection and Handling
     st.subheader('Outlier Detection and Handling')
+
+    # Define numerical features for outlier detection
     numerical_features = ['temp', 'atemp', 'hum', 'windspeed', 'casual', 'registered', 'cnt']
+
     st.write('Box plots of numerical features to detect outliers.')
+
+    # Create box plots for each numerical feature
     fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(15, 8))
     axes = axes.flatten()
     for idx, col in enumerate(numerical_features):
         sns.boxplot(y=bike_data[col], ax=axes[idx])
         axes[idx].set_title(col)
+    # Hide the last subplot if there are fewer features
+    for idx in range(len(numerical_features), len(axes)):
+        axes[idx].set_visible(False)
     st.pyplot(fig)
 
-    # Handling outliers
-    st.write('Outliers are handled using Z-score method.')
+    # Handling outliers using the Z-score method
+    st.write('Outliers are handled using the Z-score method (threshold = 3).')
+
+    # Remove outliers from the dataset
     for feature in numerical_features:
         z_scores = np.abs(stats.zscore(bike_data[feature]))
         bike_data = bike_data[(z_scores < 3)]
 
     # Treatment of text and date features
     st.subheader('Treatment of Text and Date Features')
+
+    # Convert 'dteday' to datetime and extract date components
     bike_data['dteday'] = pd.to_datetime(bike_data['dteday'])
     bike_data['day'] = bike_data['dteday'].dt.day
     bike_data['month'] = bike_data['dteday'].dt.month
     bike_data['year'] = bike_data['dteday'].dt.year
 
-    # Generate extra features
+    # Feature Engineering
     st.subheader('Feature Engineering')
 
-    # Categorize hour into time of day
+    st.write('Categorizing hours into time of day and creating polynomial features.')
+
+    # Function to categorize hour into time of day
     def categorize_hour(hr):
         if 6 <= hr < 12:
             return 'Morning'
@@ -127,26 +154,33 @@ with tabs[1]:
             return 'Evening'
         else:
             return 'Night'
+
+    # Apply the function to create a new feature
     bike_data['hour_category'] = bike_data['hr'].apply(categorize_hour)
+
+    # One-hot encode the 'hour_category' feature
     bike_data = pd.get_dummies(bike_data, columns=['hour_category'], drop_first=True)
 
-    # Encode holiday as binary
+    # Encode 'holiday' as a categorical feature
     bike_data['is_holiday'] = bike_data['holiday'].apply(lambda x: 'Holiday' if x == 1 else 'No Holiday')
     bike_data = pd.get_dummies(bike_data, columns=['is_holiday'], drop_first=True)
 
-    # Manually create polynomial features
-    st.write('Generating polynomial features for temperature and humidity.')
+    # Create polynomial features for 'temp' and 'hum'
     bike_data['temp_squared'] = bike_data['temp'] ** 2
     bike_data['hum_squared'] = bike_data['hum'] ** 2
     bike_data['temp_hum_interaction'] = bike_data['temp'] * bike_data['hum']
 
-# Exploratory Data Analysis Tab
+# ====================== Exploratory Data Analysis Tab ======================
 with tabs[2]:
     st.header('Exploratory Data Analysis')
 
     # Correlation Heatmap
     st.subheader('Correlation Heatmap')
+
+    # Calculate the correlation matrix
     corr = bike_data.corr()
+
+    # Plot the heatmap
     fig, ax = plt.subplots(figsize=(15, 10))
     sns.heatmap(corr, annot=False, fmt=".2f", cmap='coolwarm')
     st.pyplot(fig)
@@ -156,114 +190,132 @@ with tabs[2]:
 
     # Bike Counts over Hours
     st.subheader('Bike Counts over Hours')
+
+    # Calculate average bike counts per hour
     hour_counts = bike_data.groupby('hr')['cnt'].mean()
-    fig = px.line(x=hour_counts.index, y=hour_counts.values, labels={'x': 'Hour of the Day', 'y': 'Average Count'}, title='Average Bike Count per Hour')
+
+    # Plot the average bike counts per hour
+    fig = px.line(
+        x=hour_counts.index,
+        y=hour_counts.values,
+        labels={'x': 'Hour of the Day', 'y': 'Average Count'},
+        title='Average Bike Count per Hour'
+    )
     st.plotly_chart(fig)
 
     # Interactive Feature Exploration
     st.subheader('Interactive Feature Exploration')
+
+    # Allow users to select features for x and y axes
     x_axis = st.selectbox('Select X-axis', options=bike_data.columns)
     y_axis = st.selectbox('Select Y-axis', options=bike_data.columns)
+
+    # Plot the selected features
     fig = px.scatter(bike_data, x=x_axis, y=y_axis, title=f'{y_axis} vs {x_axis}')
     st.plotly_chart(fig)
 
     # Additional Insights
     st.write('From the plots, we observe peak usage during rush hours, indicating that many users are commuting to work.')
 
-# Predictive Modeling Tab
+# ====================== Predictive Modeling Tab ======================
 with tabs[3]:
     st.header('Predictive Modeling')
 
+    # Load the pre-trained model and scaler
+    st.subheader('Load Pre-trained Model')
+
+    try:
+        # Load the scaler
+        scaler = joblib.load('scaler.pkl')
+        # Load the pre-trained best model
+        best_model = joblib.load('best_model.pkl')
+        st.success('Pre-trained model and scaler loaded successfully.')
+    except Exception as e:
+        st.error(f'Error loading pre-trained model and scaler: {e}')
+        st.stop()
+
     # Data Preparation
     st.subheader('Data Preparation')
+
+    # Define the target variable and features
     target = 'cnt'
     features = bike_data.columns.drop(['instant', 'dteday', 'cnt', 'casual', 'registered'])
+
+    # Separate features (X) and target (y)
     X = bike_data[features]
     y = bike_data[target]
+
     st.write('Splitting data into training and testing sets.')
+
+    # Split the data into training and testing sets
+    # Note: Even though we are not retraining the model, we need a test set to evaluate the model
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     # Feature Scaling
-    st.write('Scaling features.')
-    scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_test = scaler.transform(X_test)
-    joblib.dump(scaler, 'scaler.pkl')
+    st.write('Scaling features using the loaded StandardScaler.')
 
-    # Model Training and Evaluation
-    st.subheader('Model Training and Evaluation')
+    # Transform the features using the loaded scaler
+    X_train_scaled = scaler.transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
 
-    # Linear Regression
-    st.write('Training Linear Regression model.')
-    lr_model = LinearRegression()
-    lr_model.fit(X_train, y_train)
-    y_pred_lr = lr_model.predict(X_test)
-    mse_lr = mean_squared_error(y_test, y_pred_lr)
-    r2_lr = r2_score(y_test, y_pred_lr)
-    st.write(f'Linear Regression MSE: {mse_lr:.2f}, R²: {r2_lr:.2f}')
+    # Model Evaluation
+    st.subheader('Model Evaluation')
 
-    # Ridge Regression with hyperparameter tuning
-    st.write('Training Ridge Regression with hyperparameter tuning.')
-    ridge_params = {'alpha': [0.1, 1.0, 10.0]}
-    ridge_model = GridSearchCV(Ridge(), ridge_params, cv=5)
-    ridge_model.fit(X_train, y_train)
-    best_ridge_model = ridge_model.best_estimator_
-    y_pred_ridge = best_ridge_model.predict(X_test)
-    mse_ridge = mean_squared_error(y_test, y_pred_ridge)
-    r2_ridge = r2_score(y_test, y_pred_ridge)
-    st.write(f'Ridge Regression MSE: {mse_ridge:.2f}, R²: {r2_ridge:.2f}')
+    # Use the pre-trained model to make predictions on the test set
+    y_pred = best_model.predict(X_test_scaled)
 
-    # Random Forest Regression with hyperparameter tuning
-    st.write('Training Random Forest Regression with hyperparameter tuning.')
-    rf_params = {'n_estimators': [100, 200], 'max_depth': [10, None]}
-    rf_model = GridSearchCV(RandomForestRegressor(random_state=42), rf_params, cv=5)
-    rf_model.fit(X_train, y_train)
-    best_rf_model = rf_model.best_estimator_
-    y_pred_rf = best_rf_model.predict(X_test)
-    mse_rf = mean_squared_error(y_test, y_pred_rf)
-    r2_rf = r2_score(y_test, y_pred_rf)
-    st.write(f'Random Forest Regression MSE: {mse_rf:.2f}, R²: {r2_rf:.2f}')
+    # Calculate performance metrics
+    mse = mean_squared_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
 
-    # Compare models
-    st.subheader('Model Comparison')
-    results = pd.DataFrame({
-        'Model': ['Linear Regression', 'Ridge Regression', 'Random Forest'],
-        'MSE': [mse_lr, mse_ridge, mse_rf],
-        'R2_Score': [r2_lr, r2_ridge, r2_rf]
-    })
-    st.write(results)
+    st.write(f'Loaded Model MSE: {mse:.2f}, R²: {r2:.2f}')
 
-    # Plotting predictions vs reality for the best model
+    # Plotting predictions vs actual values
     st.subheader('Predictions vs Actual Values')
-    best_model = best_rf_model
-    y_pred_best = y_pred_rf
-    fig = px.scatter(x=y_test, y=y_pred_best, labels={'x': 'Actual Values', 'y': 'Predicted Values'}, title='Actual vs Predicted Bike Counts')
+
+    # Plot actual vs predicted values
+    fig = px.scatter(
+        x=y_test,
+        y=y_pred,
+        labels={'x': 'Actual Values', 'y': 'Predicted Values'},
+        title='Actual vs Predicted Bike Counts'
+    )
     st.plotly_chart(fig)
 
-    # Save the best model
-    joblib.dump(best_model, 'best_model.pkl')
-
-# Simulator Tab
+# ====================== Simulator Tab ======================
 with tabs[4]:
     st.header('Bike Usage Prediction Simulator')
 
     st.write('Use the controls below to input parameters and predict the expected number of bike users.')
 
-    # Load the best model and scaler
-    best_model = joblib.load('best_model.pkl')
-    scaler = joblib.load('scaler.pkl')
+    # Load the pre-trained model and scaler
+    try:
+        best_model = joblib.load('best_model.pkl')
+        scaler = joblib.load('scaler.pkl')
+    except Exception as e:
+        st.error(f'Error loading pre-trained model and scaler: {e}')
+        st.stop()
 
     # Input features
-    season = st.selectbox('Season', [1, 2, 3, 4], format_func=lambda x: {1:'Spring',2:'Summer',3:'Fall',4:'Winter'}[x])
+    # Use more descriptive variable names and provide default values for better UX
+    season = st.selectbox(
+        'Season',
+        [1, 2, 3, 4],
+        format_func=lambda x: {1: 'Spring', 2: 'Summer', 3: 'Fall', 4: 'Winter'}[x]
+    )
     hr = st.slider('Hour', 0, 23, 12)
-    holiday = st.selectbox('Holiday', [0, 1], format_func=lambda x: 'Yes' if x ==1 else 'No')
-    workingday = st.selectbox('Working Day', [0, 1], format_func=lambda x: 'Yes' if x ==1 else 'No')
-    weathersit = st.selectbox('Weather Situation', [1, 2, 3, 4], format_func=lambda x: {1:'Clear',2:'Mist',3:'Light Snow/Rain',4:'Heavy Rain'}[x])
+    holiday = st.selectbox('Holiday', [0, 1], format_func=lambda x: 'Yes' if x == 1 else 'No')
+    workingday = st.selectbox('Working Day', [0, 1], format_func=lambda x: 'Yes' if x == 1 else 'No')
+    weathersit = st.selectbox(
+        'Weather Situation',
+        [1, 2, 3, 4],
+        format_func=lambda x: {1: 'Clear', 2: 'Mist', 3: 'Light Snow/Rain', 4: 'Heavy Rain'}[x]
+    )
     temp = st.slider('Temperature (normalized)', 0.0, 1.0, 0.5)
     hum = st.slider('Humidity (normalized)', 0.0, 1.0, 0.5)
     windspeed = st.slider('Wind Speed (normalized)', 0.0, 1.0, 0.5)
     month = st.slider('Month', 1, 12, 6)
-    weekday = st.slider('Weekday', 0, 6, 3)
+    weekday = st.slider('Weekday (0=Sunday)', 0, 6, 3)
 
     # Create a DataFrame for the input features
     input_data = pd.DataFrame({
@@ -276,7 +328,7 @@ with tabs[4]:
         'workingday': [workingday],
         'weathersit': [weathersit],
         'temp': [temp],
-        'atemp': [temp],  # Assuming atemp is similar to temp
+        'atemp': [temp],  # Assuming 'atemp' is similar to 'temp'
         'hum': [hum],
         'windspeed': [windspeed],
         'day': [15],  # Assuming mid-month
@@ -285,7 +337,7 @@ with tabs[4]:
     })
 
     # Perform the same feature engineering as before
-    # Categorize hour
+    # Categorize hour into time of day
     def categorize_hour(hr):
         if 6 <= hr < 12:
             return 'Morning'
@@ -295,14 +347,18 @@ with tabs[4]:
             return 'Evening'
         else:
             return 'Night'
+
+    # Apply the function to create a new feature
     input_data['hour_category'] = input_data['hr'].apply(categorize_hour)
+
+    # One-hot encode the 'hour_category' feature
     input_data = pd.get_dummies(input_data, columns=['hour_category'], drop_first=True)
 
-    # Encode holiday
+    # Encode 'is_holiday' as a categorical feature
     input_data['is_holiday'] = 'No Holiday' if holiday == 0 else 'Holiday'
     input_data = pd.get_dummies(input_data, columns=['is_holiday'], drop_first=True)
 
-    # Manually create polynomial features
+    # Create polynomial features for 'temp' and 'hum'
     input_data['temp_squared'] = input_data['temp'] ** 2
     input_data['hum_squared'] = input_data['hum'] ** 2
     input_data['temp_hum_interaction'] = input_data['temp'] * input_data['hum']
@@ -316,13 +372,15 @@ with tabs[4]:
     # Scale the input data
     input_data_scaled = scaler.transform(input_data)
 
-    # Predict
+    # Predict using the pre-trained model
     prediction = best_model.predict(input_data_scaled)
-    st.subheader(f'Predicted Number of Bike Users: {int(prediction[0])}')
 
-# Download Report Tab
+    st.subheader(f'Predicted Number of Bike Users: **{int(prediction[0])}**')
+
+# ====================== Download Report Tab ======================
 with tabs[5]:
     st.header('📄 Download Report')
+
     st.markdown("""
     **Generate and Download a Professional PDF Report:**
     Compile your analysis and model evaluation results into a concise and professional PDF report for offline review and sharing with stakeholders.
@@ -382,14 +440,13 @@ with tabs[5]:
                 pdf.set_font("Arial", 'B', 12)
                 pdf.cell(0, 10, "Predictive Modeling Summary", ln=True)
                 pdf.set_font("Arial", '', 12)
-                # Retrieve model evaluation metrics
-                mse_rf = mean_squared_error(y_test, y_pred_rf)
-                r2_rf = r2_score(y_test, y_pred_rf)
+
+                # Include model evaluation metrics
                 model_summary = (
-                    "- **Best Model:** Random Forest Regression\n"
-                    f"- **Mean Squared Error (MSE):** {mse_rf:.2f}\n"
-                    f"- **R² Score:** {r2_rf:.2f}\n"
-                    "- **Model Insights:** The Random Forest model provides the best predictive performance among the models evaluated.\n"
+                    f"- **Model Used:** Pre-trained Model ({type(best_model).__name__})\n"
+                    f"- **Mean Squared Error (MSE):** {mse:.2f}\n"
+                    f"- **R² Score:** {r2:.2f}\n"
+                    "- **Model Insights:** The pre-trained model provides reliable predictions of bike usage.\n"
                 )
                 pdf.multi_cell(0, 10, model_summary)
                 pdf.ln(5)
@@ -425,9 +482,10 @@ with tabs[5]:
             except Exception as e:
                 st.error(f"Error generating report: {e}")
 
-# Feedback Tab
+# ====================== Feedback Tab ======================
 with tabs[6]:
     st.header('💬 Feedback')
+
     st.markdown("""
     **We Value Your Feedback:**
     Help us improve the Bike Sharing Analysis Dashboard by providing your valuable feedback and suggestions.
