@@ -1,5 +1,3 @@
-# app.py
-
 # Import necessary libraries
 import os
 import joblib
@@ -12,13 +10,20 @@ import numpy as np
 # Visualization libraries
 import plotly.express as px
 import plotly.graph_objects as go
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Streamlit for interactive web applications
 import streamlit as st
 from streamlit_option_menu import option_menu  # For a modern sidebar menu
 
+# PDF generation
+from fpdf import FPDF
+
 # Machine learning libraries
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_squared_error, r2_score
 import scipy.stats as stats
 
 # Suppress warnings for cleaner output
@@ -87,7 +92,7 @@ bike_data['dteday'] = pd.to_datetime(bike_data['dteday'])
 if selected == "Home":
     st.title('🚴‍♂️ BikeShare Insights')
     st.markdown("""
-    ### Unlock the Potential of Washington D.C.'s Bike-Sharing Data!
+    ### Unlock the potential of Washington D.C.'s bike-sharing data!
     
     Welcome to **BikeShare Insights**, your one-stop platform for interactive data exploration and personalized bike rental recommendations.
     
@@ -95,7 +100,7 @@ if selected == "Home":
     """)
     # Add an attractive image
     st.image("bike_share_banner.jpg", use_column_width=True)
-    
+
     # Quick summary statistics
     st.markdown("### Quick Stats")
     col1, col2, col3 = st.columns(3)
@@ -111,7 +116,7 @@ if selected == "Home":
 elif selected == "Data Overview":
     st.title('Data Overview')
     st.markdown("""
-    ### Dive into the Dataset That Powers Our Insights
+    ### Dive into the dataset that powers our insights.
     
     Explore the key features and understand the structure of the data.
     """)
@@ -138,14 +143,14 @@ elif selected == "Data Overview":
 elif selected == "Exploratory Analysis":
     st.title('Exploratory Data Analysis')
     st.markdown("""
-    ### Uncover Patterns and Trends in Bike-Sharing Usage
+    ### Uncover patterns and trends in bike-sharing usage.
     
     Interactive visualizations help you delve deeper into the data.
     """)
 
     # Interactive plots using Plotly
     st.subheader('Bike Rentals Over Time')
-    fig = px.line(bike_data, x='dteday', y='cnt', title='Total Bike Rentals Over Time', labels={'dteday': 'Date', 'cnt': 'Total Rentals'})
+    fig = px.line(bike_data, x='dteday', y='cnt', title='Total Bike Rentals Over Time')
     st.plotly_chart(fig, use_container_width=True)
 
     st.subheader('Average Rentals by Hour')
@@ -164,13 +169,13 @@ elif selected == "Exploratory Analysis":
     fig.update_layout(title='Feature Correlation Heatmap', xaxis_nticks=36)
     st.plotly_chart(fig, use_container_width=True)
 
-    # Additional EDA sections can be added here...
+    # Additional EDA sections as needed...
 
 # ====================== Recommendations Page ======================
 elif selected == "Recommendations":
     st.title('Personalized Bike Rental Recommendations')
     st.markdown("""
-    ### Get Insights Tailored to Your Preferences
+    ### Get insights tailored to your preferences.
     
     Adjust the parameters below to receive a recommendation on whether it's a good day for renting a bike.
     """)
@@ -232,7 +237,7 @@ elif selected == "Recommendations":
             'workingday': [workingday],
             'weathersit': [weathersit],
             'temp': [(temp + 8) / 47],  # Normalize temperature
-            'atemp': [(temp + 16) / 66],  # Approximate feels-like temperature normalization
+            'atemp': [(temp + 16) / 66],  # Approximate feels-like temperature
             'hum': [hum / 100],  # Normalize humidity
             'windspeed': [windspeed / 67],  # Normalize windspeed
         })
@@ -279,7 +284,7 @@ elif selected == "Recommendations":
 
         if predicted_count >= cnt_mean + cnt_std:
             recommendation = "🌟 It's a fantastic time to rent a bike!"
-            emoji = "🚴‍♀️"
+            emoji = "🌞"
         elif predicted_count >= cnt_mean:
             recommendation = "👍 It's a good day for biking."
             emoji = "😊"
@@ -309,14 +314,13 @@ elif selected == "Recommendations":
                        {'range': [cnt_mean + cnt_std, bike_data['cnt'].max()], 'color': 'darkgray'}
                    ]}
         ))
-        fig.update_layout(height=400)
         st.plotly_chart(fig, use_container_width=True)
 
 # ====================== About Page ======================
 elif selected == "About":
     st.title('About BikeShare Insights')
     st.markdown("""
-    ### Empowering Cyclists with Data-Driven Insights
+    ### Empowering cyclists with data-driven insights.
     
     **BikeShare Insights** is developed to help residents and visitors of Washington D.C. make informed decisions about bike rentals. By analyzing historical data, we provide personalized recommendations and highlight trends in bike-sharing usage.
     
@@ -334,11 +338,46 @@ elif selected == "About":
     - Data Science libraries (Pandas, NumPy, Scikit-learn)
 
     **Developed by:**
-    - *Your Name*
+    - Your Name
     - [LinkedIn](https://www.linkedin.com)
     - [GitHub](https://www.github.com)
 
     **Contact Us:**
     If you have any questions or feedback, please reach out at [email@example.com](mailto:email@example.com).
     """)
+
+# ====================== Custom CSS ======================
+# Save this CSS code in a file named "styles.css" in the same directory as your script.
+
+"""
+body {
+    background-color: #f0f2f6;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: #333333;
+}
+
+.stButton>button {
+    background-color: #FF4B4B;
+    color: white;
+    border-radius: 5px;
+    padding: 0.5em 1em;
+}
+
+.stButton>button:hover {
+    background-color: #e84343;
+    color: white;
+}
+
+.css-1aumxhk {
+    background-color: #f0f2f6;
+}
+
+footer {
+    visibility: hidden;
+}
+"""
+
+# Save the CSS content above into a file named "styles.css" in the same directory as your script.
 
