@@ -19,9 +19,7 @@ import streamlit as st
 from fpdf import FPDF
 
 # Machine learning libraries
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import mean_squared_error, r2_score
 import scipy.stats as stats
 
 # Suppress warnings for cleaner output
@@ -219,8 +217,7 @@ with tabs[2]:
     for feature, value in top_negative_corr.items():
         st.write(f"- **{feature}**: {value:.2f}")
 
-    # [Include the rest of the EDA sections with dynamic comments as per the previous code]
-    # For brevity, the rest of the EDA code is similar, adding dynamic comments after each plot.
+    # [Include additional EDA sections with dynamic comments as needed]
 
     # ====================== Key Takeaways ======================
     st.header('Key Takeaways')
@@ -255,7 +252,7 @@ with tabs[3]:
         st.stop()
 
     # Input features
-    # Use more descriptive variable names and provide default values for better UX
+    # Use descriptive variable names and provide default values for better UX
     season = st.selectbox(
         'Season',
         [1, 2, 3, 4],
@@ -267,7 +264,12 @@ with tabs[3]:
     weathersit = st.selectbox(
         'Weather Situation',
         [1, 2, 3, 4],
-        format_func=lambda x: {1: 'Clear', 2: 'Mist', 3: 'Light Snow/Rain', 4: 'Heavy Rain'}[x]
+        format_func=lambda x: {
+            1: 'Clear',
+            2: 'Mist',
+            3: 'Light Snow/Rain',
+            4: 'Heavy Rain'
+        }[x]
     )
     temp = st.slider('Temperature (normalized)', 0.0, 1.0, 0.5)
     hum = st.slider('Humidity (normalized)', 0.0, 1.0, 0.5)
@@ -294,17 +296,6 @@ with tabs[3]:
 
     # Perform the same feature engineering as before
     # Categorize hour into time of day
-    def categorize_hour(hr):
-        if 6 <= hr < 12:
-            return 'Morning'
-        elif 12 <= hr < 18:
-            return 'Afternoon'
-        elif 18 <= hr < 24:
-            return 'Evening'
-        else:
-            return 'Night'
-
-    # Apply the function to create a new feature
     input_data['hour_category'] = input_data['hr'].apply(categorize_hour)
 
     # One-hot encode the 'hour_category' feature
@@ -320,13 +311,12 @@ with tabs[3]:
     input_data['temp_hum_interaction'] = input_data['temp'] * input_data['hum']
 
     # Define the features used during training
-    target = 'cnt'
     features = bike_data.columns.drop(['instant', 'dteday', 'cnt', 'casual', 'registered'])
 
     # Ensure the input_data has the same columns as training data
     missing_cols = set(features) - set(input_data.columns)
     for col in missing_cols:
-        input_data[col] = 0  # Or appropriate default value
+        input_data[col] = 0
     input_data = input_data[features]  # Ensure the order matches
 
     # Scale the input data
@@ -424,20 +414,6 @@ with tabs[4]:
                     "- **Expansion Opportunities:** Consider expanding services during high-demand periods and locations.\n"
                 )
                 pdf.multi_cell(0, 10, recommendations)
-                pdf.ln(5)
-
-                # Predictive Modeling Summary
-                pdf.set_font("Arial", 'B', 12)
-                pdf.cell(0, 10, "Predictive Modeling Summary", ln=True)
-                pdf.set_font("Arial", '', 12)
-
-                # Include model evaluation metrics
-                # (Assuming mse and r2 have been calculated earlier)
-                model_summary = (
-                    f"- **Model Used:** Pre-trained Random Forest Regressor\n"
-                    "- **Model Insights:** The model accurately predicts bike rental demand, assisting in proactive planning.\n"
-                )
-                pdf.multi_cell(0, 10, model_summary)
                 pdf.ln(5)
 
                 # Conclusion
