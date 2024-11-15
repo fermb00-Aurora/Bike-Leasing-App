@@ -1,9 +1,13 @@
 # Import necessary libraries
+import os
+import joblib
+import warnings
+
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import joblib
+from fpdf import FPDF
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
@@ -12,6 +16,9 @@ from sklearn.metrics import mean_squared_error, r2_score
 import matplotlib.pyplot as plt
 import seaborn as sns
 import scipy.stats as stats
+
+# Suppress warnings for cleaner output
+warnings.filterwarnings("ignore")
 
 # Streamlit Configuration
 st.set_page_config(
@@ -31,7 +38,7 @@ Welcome to the interactive dashboard for the Washington D.C. bike-sharing servic
 file_path = 'hour.csv'
 try:
     bike_data = pd.read_csv(file_path)
-except FileNotFoundError:
+except FileNotError:
     st.error("Dataset 'hour.csv' not found. Please ensure the file is in the correct directory.")
     st.stop()
 except pd.errors.EmptyDataError:
@@ -47,7 +54,9 @@ tabs = st.tabs([
     'Data Cleaning & Feature Engineering',
     'Exploratory Data Analysis',
     'Predictive Modeling',
-    'Simulator'
+    'Simulator',
+    'Download Report',
+    'Feedback'
 ])
 
 # Data Overview Tab
@@ -130,7 +139,6 @@ with tabs[1]:
     bike_data['temp_squared'] = bike_data['temp'] ** 2
     bike_data['hum_squared'] = bike_data['hum'] ** 2
     bike_data['temp_hum_interaction'] = bike_data['temp'] * bike_data['hum']
-    # You can add more interaction features as needed
 
 # Exploratory Data Analysis Tab
 with tabs[2]:
@@ -312,4 +320,127 @@ with tabs[4]:
     prediction = best_model.predict(input_data_scaled)
     st.subheader(f'Predicted Number of Bike Users: {int(prediction[0])}')
 
+# Download Report Tab
+with tabs[5]:
+    st.header('📄 Download Report')
+    st.markdown("""
+    **Generate and Download a Professional PDF Report:**
+    Compile your analysis and model evaluation results into a concise and professional PDF report for offline review and sharing with stakeholders.
+    """)
 
+    # Button to generate report
+    if st.button("Generate Report"):
+        with st.spinner("Generating PDF report..."):
+            try:
+                # Initialize PDF
+                pdf = FPDF()
+                pdf.set_auto_page_break(auto=True, margin=15)
+
+                # Title Page
+                pdf.add_page()
+                pdf.set_font("Arial", 'B', 16)
+                pdf.cell(0, 10, "Washington D.C. Bike Sharing Analysis Report", ln=True, align='C')
+                pdf.ln(10)
+
+                # Executive Summary
+                pdf.set_font("Arial", 'B', 12)
+                pdf.cell(0, 10, "Executive Summary", ln=True)
+                pdf.set_font("Arial", '', 12)
+                exec_summary = (
+                    "This report provides a comprehensive analysis of the Washington D.C. bike-sharing service. "
+                    "It includes data overview, exploratory data analysis, predictive modeling, and insights into usage patterns."
+                )
+                pdf.multi_cell(0, 10, exec_summary)
+                pdf.ln(5)
+
+                # Data Overview
+                pdf.set_font("Arial", 'B', 12)
+                pdf.cell(0, 10, "Data Overview", ln=True)
+                pdf.set_font("Arial", '', 12)
+                total_records = len(bike_data)
+                data_overview = (
+                    f"- **Total Records:** {total_records:,}\n"
+                    "- **Features:** The dataset includes hourly rental data and weather information.\n"
+                    "- **Time Period:** Covers bike-sharing data over two years.\n"
+                )
+                pdf.multi_cell(0, 10, data_overview)
+                pdf.ln(5)
+
+                # Exploratory Data Analysis
+                pdf.set_font("Arial", 'B', 12)
+                pdf.cell(0, 10, "Exploratory Data Analysis", ln=True)
+                pdf.set_font("Arial", '', 12)
+                eda_summary = (
+                    "- **Peak Usage Hours:** Bike rentals peak during morning and evening rush hours.\n"
+                    "- **Seasonal Trends:** Higher usage observed during warmer months.\n"
+                    "- **Weather Impact:** Adverse weather conditions lead to decreased bike usage.\n"
+                )
+                pdf.multi_cell(0, 10, eda_summary)
+                pdf.ln(5)
+
+                # Predictive Modeling Summary
+                pdf.set_font("Arial", 'B', 12)
+                pdf.cell(0, 10, "Predictive Modeling Summary", ln=True)
+                pdf.set_font("Arial", '', 12)
+                # Retrieve model evaluation metrics
+                mse_rf = mean_squared_error(y_test, y_pred_rf)
+                r2_rf = r2_score(y_test, y_pred_rf)
+                model_summary = (
+                    "- **Best Model:** Random Forest Regression\n"
+                    f"- **Mean Squared Error (MSE):** {mse_rf:.2f}\n"
+                    f"- **R² Score:** {r2_rf:.2f}\n"
+                    "- **Model Insights:** The Random Forest model provides the best predictive performance among the models evaluated.\n"
+                )
+                pdf.multi_cell(0, 10, model_summary)
+                pdf.ln(5)
+
+                # Conclusion
+                pdf.set_font("Arial", 'B', 12)
+                pdf.cell(0, 10, "Conclusion", ln=True)
+                pdf.set_font("Arial", '', 12)
+                conclusion = (
+                    "The analysis reveals significant patterns in bike-sharing usage related to time of day, season, and weather conditions. "
+                    "The predictive model can assist in forecasting demand and optimizing resource allocation."
+                )
+                pdf.multi_cell(0, 10, conclusion)
+                pdf.ln(5)
+
+                # Finalize and Save the PDF
+                report_path = "bike_sharing_analysis_report.pdf"
+                pdf.output(report_path)
+
+                # Provide download button
+                with open(report_path, "rb") as file:
+                    st.download_button(
+                        label="📥 Download PDF Report",
+                        data=file,
+                        file_name=report_path,
+                        mime="application/pdf"
+                    )
+                st.success("Report generated and ready for download!")
+
+                # Clean up the temporary PDF file
+                os.remove(report_path)
+
+            except Exception as e:
+                st.error(f"Error generating report: {e}")
+
+# Feedback Tab
+with tabs[6]:
+    st.header('💬 Feedback')
+    st.markdown("""
+    **We Value Your Feedback:**
+    Help us improve the Bike Sharing Analysis Dashboard by providing your valuable feedback and suggestions.
+    """)
+
+    # Feedback input
+    feedback = st.text_area("Provide your feedback here:")
+
+    # Submit feedback button
+    if st.button("Submit Feedback"):
+        if feedback.strip() == "":
+            st.warning("Please enter your feedback before submitting.")
+        else:
+            # Placeholder for feedback storage (e.g., database or email)
+            # Implement actual storage mechanism as needed
+            st.success("Thank you for your feedback!")
