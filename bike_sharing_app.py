@@ -45,7 +45,7 @@ This tool provides insights into the usage patterns of the bike-sharing service 
 """)
 
 # Add the GIF image
-gif_url = "https://media.giphy.com/media/3o6UB4cLhGn9JjdT7y/giphy.gif"  # Replace with your desired GIF URL or local file path
+gif_url = "giphy.gif"  # Replace with your desired GIF URL or local file path
 st.image(gif_url, caption='Bike Sharing in Washington D.C.', use_column_width=True)
 
 # ====================== Load the Dataset ======================
