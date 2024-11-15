@@ -38,7 +38,7 @@ st.set_page_config(
 # Title and Introduction
 st.title('Washington D.C. Bike Sharing Service Analysis')
 st.markdown("""
-Welcome to the interactive dashboard for the Washington D.C. bike-sharing service analysis. This tool provides insights into the usage patterns of the bike-sharing service and includes a predictive model to estimate the number of users on an hourly basis.
+Welcome to the interactive dashboard for the Washington D.C. bike-sharing service analysis. This tool provides insights into the usage patterns of the bike-sharing service and includes recommendations on whether it's a good day to rent a bike based on your input parameters.
 """)
 
 # ====================== Load the Dataset ======================
@@ -62,8 +62,7 @@ tabs = st.tabs([
     'Data Overview',
     'Data Cleaning & Feature Engineering',
     'Exploratory Data Analysis',
-    'Predictive Modeling',
-    'Simulator',
+    'Recommendations',
     'Download Report',
     'Feedback'
 ])
@@ -220,25 +219,6 @@ with tabs[2]:
     for feature, value in top_negative_corr.items():
         st.write(f"- **{feature}**: {value:.2f}")
 
-    # ====================== 3. Average Bike Rentals by Hour ======================
-    st.subheader('3. Average Bike Rentals by Hour')
-    st.write('Shows daily rental trends with peaks during commuting hours.')
-
-    hour_counts = bike_data.groupby('hr')['cnt'].mean()
-    fig = px.line(
-        x=hour_counts.index,
-        y=hour_counts.values,
-        labels={'x': 'Hour of the Day', 'y': 'Average Count'},
-        title='Average Bike Rentals by Hour'
-    )
-    st.plotly_chart(fig)
-
-    # Identify peak hours
-    peak_hours = hour_counts.sort_values(ascending=False).head(3)
-    st.write("**Top 3 hours with highest average rentals:**")
-    for hour, count in peak_hours.items():
-        st.write(f"- **Hour {hour}**: {count:.2f} rentals on average")
-
     # [Include the rest of the EDA sections with dynamic comments as per the previous code]
     # For brevity, the rest of the EDA code is similar, adding dynamic comments after each plot.
 
@@ -260,76 +240,11 @@ with tabs[2]:
       - Engineered features (e.g., lag, rolling averages, cyclical encoding) reveal valuable temporal dependencies and patterns.
     """)
 
-# ====================== Predictive Modeling Tab ======================
+# ====================== Recommendations Tab ======================
 with tabs[3]:
-    st.header('Predictive Modeling')
+    st.header('Recommendations')
 
-    # Load the pre-trained model and scaler
-    st.subheader('Load Pre-trained Model')
-
-    try:
-        # Load the scaler
-        scaler = joblib.load('scaler.pkl')
-        # Load the pre-trained best model
-        best_model = joblib.load('best_model.pkl')
-        st.success('Pre-trained model and scaler loaded successfully.')
-    except Exception as e:
-        st.error(f'Error loading pre-trained model and scaler: {e}')
-        st.stop()
-
-    # Data Preparation
-    st.subheader('Data Preparation')
-
-    # Define the target variable and features
-    target = 'cnt'
-    features = bike_data.columns.drop(['instant', 'dteday', 'cnt', 'casual', 'registered'])
-
-    # Separate features (X) and target (y)
-    X = bike_data[features]
-    y = bike_data[target]
-
-    st.write('Splitting data into training and testing sets.')
-
-    # Split the data into training and testing sets
-    # Note: Even though we are not retraining the model, we need a test set to evaluate the model
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-    # Feature Scaling
-    st.write('Scaling features using the loaded StandardScaler.')
-
-    # Transform the features using the loaded scaler
-    X_train_scaled = scaler.transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-
-    # Model Evaluation
-    st.subheader('Model Evaluation')
-
-    # Use the pre-trained model to make predictions on the test set
-    y_pred = best_model.predict(X_test_scaled)
-
-    # Calculate performance metrics
-    mse = mean_squared_error(y_test, y_pred)
-    r2 = r2_score(y_test, y_pred)
-
-    st.write(f'Loaded Model MSE: {mse:.2f}, R²: {r2:.2f}')
-
-    # Plotting predictions vs actual values
-    st.subheader('Predictions vs Actual Values')
-
-    # Plot actual vs predicted values
-    fig = px.scatter(
-        x=y_test,
-        y=y_pred,
-        labels={'x': 'Actual Values', 'y': 'Predicted Values'},
-        title='Actual vs Predicted Bike Counts'
-    )
-    st.plotly_chart(fig)
-
-# ====================== Simulator Tab ======================
-with tabs[4]:
-    st.header('Bike Usage Prediction Simulator')
-
-    st.write('Use the controls below to input parameters and predict the expected number of bike users.')
+    st.write('Use the controls below to input parameters and receive a recommendation on whether it is a good day to rent a bike.')
 
     # Load the pre-trained model and scaler
     try:
@@ -404,6 +319,10 @@ with tabs[4]:
     input_data['hum_squared'] = input_data['hum'] ** 2
     input_data['temp_hum_interaction'] = input_data['temp'] * input_data['hum']
 
+    # Define the features used during training
+    target = 'cnt'
+    features = bike_data.columns.drop(['instant', 'dteday', 'cnt', 'casual', 'registered'])
+
     # Ensure the input_data has the same columns as training data
     missing_cols = set(features) - set(input_data.columns)
     for col in missing_cols:
@@ -415,11 +334,26 @@ with tabs[4]:
 
     # Predict using the pre-trained model
     prediction = best_model.predict(input_data_scaled)
+    predicted_count = int(prediction[0])
 
-    st.subheader(f'Predicted Number of Bike Users: **{int(prediction[0])}**')
+    # Based on the predicted count, provide a recommendation
+    # Define thresholds based on the distribution of 'cnt' in the dataset
+    cnt_mean = bike_data['cnt'].mean()
+    cnt_std = bike_data['cnt'].std()
+
+    if predicted_count >= cnt_mean + cnt_std:
+        recommendation = "🌟 It's a great day to rent a bike! High demand expected."
+    elif predicted_count >= cnt_mean:
+        recommendation = "👍 It's a good day to rent a bike."
+    else:
+        recommendation = "🤔 It might not be the best day to rent a bike due to lower demand."
+
+    st.subheader('Recommendation')
+    st.write(recommendation)
+    st.write(f"**Predicted Number of Bike Users:** {predicted_count}")
 
 # ====================== Download Report Tab ======================
-with tabs[5]:
+with tabs[4]:
     st.header('📄 Download Report')
 
     st.markdown("""
@@ -498,10 +432,9 @@ with tabs[5]:
                 pdf.set_font("Arial", '', 12)
 
                 # Include model evaluation metrics
+                # (Assuming mse and r2 have been calculated earlier)
                 model_summary = (
                     f"- **Model Used:** Pre-trained Random Forest Regressor\n"
-                    f"- **Mean Squared Error (MSE):** {mse:.2f}\n"
-                    f"- **R² Score:** {r2:.2f}\n"
                     "- **Model Insights:** The model accurately predicts bike rental demand, assisting in proactive planning.\n"
                 )
                 pdf.multi_cell(0, 10, model_summary)
@@ -539,7 +472,7 @@ with tabs[5]:
                 st.error(f"Error generating report: {e}")
 
 # ====================== Feedback Tab ======================
-with tabs[6]:
+with tabs[5]:
     st.header('💬 Feedback')
 
     st.markdown("""
