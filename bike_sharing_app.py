@@ -100,7 +100,7 @@ if selected == "Home":
     st.markdown("### Quick Stats")
     col1, col2, col3 = st.columns(3)
     total_rentals = bike_data['cnt'].sum()
-    average_temp = bike_data['temp'].mean() * 47 - 8  # Reverse normalization
+    average_temp = bike_data['temp'].mean() * 47  # Reverse normalization
     average_windspeed = bike_data['windspeed'].mean() * 67  # Reverse normalization
 
     col1.metric("Total Rentals", f"{total_rentals:,}")
