@@ -1,24 +1,16 @@
+# app.py
+
 # Import necessary libraries
 import os
 import joblib
 import warnings
-
-# Data manipulation and analysis
 import pandas as pd
 import numpy as np
-
-# Visualization libraries
 import plotly.express as px
 import matplotlib.pyplot as plt
 import seaborn as sns
-
-# Streamlit for interactive web applications
 import streamlit as st
-
-# PDF generation
 from fpdf import FPDF
-
-# Machine learning libraries
 from sklearn.preprocessing import StandardScaler
 import scipy.stats as stats
 
@@ -51,9 +43,15 @@ st.image(gif_url, caption='Bike Sharing in Washington D.C.', use_column_width=Tr
 # ====================== Load the Dataset ======================
 file_path = 'hour.csv'
 
+# Function to load data
+@st.cache_data
+def load_data(path):
+    data = pd.read_csv(path)
+    return data
+
 # Try to load the dataset, handle exceptions gracefully
 try:
-    bike_data = pd.read_csv(file_path)
+    bike_data = load_data(file_path)
 except FileNotFoundError:
     st.error("Dataset 'hour.csv' not found. Please ensure the file is in the correct directory.")
     st.stop()
@@ -91,7 +89,7 @@ with tabs[0]:
     # Check for missing values
     st.subheader('Missing Values')
     missing_values = bike_data.isnull().sum()
-    st.write(missing_values[missing_values > 0])
+    st.write(missing_values[missing_values > 0] if missing_values.sum() > 0 else "No missing values found.")
 
     # Check for duplicate rows
     st.subheader('Duplicate Rows')
@@ -181,10 +179,7 @@ with tabs[1]:
 with tabs[2]:
     st.header('Exploratory Data Analysis')
 
-    # Include the EDA sections with dynamic comments as per previous code
-    # [For brevity, the rest of the EDA code is similar, adding dynamic comments after each plot.]
-
-    # Example of one EDA section
+    # ====================== 1. Distribution of Total Bike Rentals ======================
     st.subheader('1. Distribution of Total Bike Rentals')
     st.write('The histogram shows the overall distribution of total rentals, helping identify skewness, central tendencies, and outliers.')
 
@@ -207,7 +202,48 @@ with tabs[2]:
     else:
         st.write('The distribution is symmetric.')
 
+    # ====================== 2. Correlation Heatmap ======================
+    st.subheader('2. Correlation Heatmap')
+    st.write('Highlights relationships between features.')
+
+    corr = bike_data.corr()
+    fig, ax = plt.subplots(figsize=(15, 10))
+    sns.heatmap(corr, annot=False, fmt=".2f", cmap='coolwarm')
+    st.pyplot(fig)
+
+    # Extract top correlations with 'cnt'
+    cnt_correlations = corr['cnt'].drop('cnt').sort_values(ascending=False)
+    top_positive_corr = cnt_correlations.head(3)
+    top_negative_corr = cnt_correlations.tail(3)
+
+    # Display dynamic comments
+    st.write("**Top features positively correlated with total rentals ('cnt'):**")
+    for feature, value in top_positive_corr.items():
+        st.write(f"- **{feature}**: {value:.2f}")
+
+    st.write("**Top features negatively correlated with total rentals ('cnt'):**")
+    for feature, value in top_negative_corr.items():
+        st.write(f"- **{feature}**: {value:.2f}")
+
     # Add more EDA sections as needed...
+
+    # ====================== Key Takeaways ======================
+    st.header('Key Takeaways')
+
+    st.markdown("""
+    - **Critical Graphs**:
+      - Distribution of rentals.
+      - Correlation heatmap.
+      - Scatterplots of temperature, humidity, and windspeed vs rentals.
+      - Hourly trends in rentals.
+    - **Seasonality and Weather**:
+      - Clear seasonal patterns highlight the role of climate and daylight.
+      - Weather conditions like clear skies and moderate temperatures are key drivers of rentals.
+    - **Temporal and User Behavior**:
+      - Hourly, daily, and user-type trends emphasize structured rental patterns tied to commuting and leisure.
+    - **Feature Engineering**:
+      - Engineered features (e.g., lag, rolling averages, cyclical encoding) reveal valuable temporal dependencies and patterns.
+    """)
 
 # ====================== Recommendations Tab ======================
 with tabs[3]:
@@ -218,10 +254,21 @@ with tabs[3]:
     # Load the pre-trained model and scaler
     try:
         best_model = joblib.load('best_model.pkl')
-        scaler = joblib.load('scaler.pkl')
+        scaler = joblib.load('scaler.pkl')  # Ensure you have a scaler.pkl if needed
     except Exception as e:
         st.error(f'Error loading pre-trained model and scaler: {e}')
         st.stop()
+
+    # Define the categorize_hour function
+    def categorize_hour(hr):
+        if 6 <= hr < 12:
+            return 'Morning'
+        elif 12 <= hr < 18:
+            return 'Afternoon'
+        elif 18 <= hr < 24:
+            return 'Evening'
+        else:
+            return 'Night'
 
     # Input features
     # Use descriptive variable names and provide default values for better UX
@@ -420,7 +467,7 @@ with tabs[4]:
                 st.error(f"Error generating report: {e}")
 
 # ====================== Feedback Tab ======================
-with tabs[5]:
+with tabs[4]:
     st.header('💬 Feedback')
 
     st.markdown("""
@@ -445,7 +492,7 @@ with tabs[6]:
     st.header('About')
 
     st.markdown("""
-    **Washington D.C. Bike Sharing Service Analysis Dashboard**
+    ### Washington D.C. Bike Sharing Service Analysis Dashboard
 
     This dashboard was developed using **Streamlit**, an open-source Python library for creating interactive web applications for data science and machine learning.
 
@@ -454,6 +501,7 @@ with tabs[6]:
     - **Pandas**: For data manipulation and cleaning.
     - **NumPy**: For numerical computations.
     - **Scikit-learn**: For machine learning modeling.
+    - **PyCaret**: For simplifying machine learning workflows.
     - **Matplotlib & Seaborn**: For data visualization.
     - **Plotly**: For interactive visualizations.
     - **Streamlit**: For creating the web application.
@@ -467,12 +515,14 @@ with tabs[6]:
 
     **Developed By:**
     - *Your Name*
-    - *Your Contact Information*
+    - [LinkedIn](https://www.linkedin.com)
+    - [GitHub](https://www.github.com)
 
     **Acknowledgments:**
     - Dataset obtained from the UCI Machine Learning Repository.
     - Inspired by various data science projects and analyses in the field.
 
-    **Note:**
-    - This project is for educational purposes.
+    **Contact Us:**
+    If you have any questions or feedback, please reach out at [email@example.com](mailto:email@example.com).
     """)
+
