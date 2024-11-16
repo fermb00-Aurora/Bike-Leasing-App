@@ -452,25 +452,10 @@ with tabs[3]:
     st.subheader('Load Pre-trained Model')
 
     try:
-        # Replace 'scaler' with the actual name used during model saving
         pipeline = load_model('scaler')  # Ensure that 'scaler.pkl' was saved using PyCaret's save_model('scaler')
         st.success('Pre-trained model loaded successfully.')
-    except FileNotFoundError:
-        st.error("Model file 'scaler.pkl' not found. Please ensure the file is in the correct directory.")
-        st.stop()
-    except ImportError as ie:
-        st.error(f'Import Error: {ie}')
-        st.stop()
     except Exception as e:
-        error_msg = str(e)
-        st.error(f'Error loading pre-trained model: {error_msg}')
-
-        # Check if the error is related to Python version incompatibility
-        if 'Pycaret only supports python' in error_msg:
-            # URL of the GIF you want to display
-            gif_url = "https://media.giphy.com/media/3o6UB4cLhGn9JjdT7y/giphy.gif"  # Replace with your desired GIF URL
-            st.image(gif_url, caption='Please downgrade your Python version to 3.10.9.', use_column_width=True)
-
+        st.error(f'Error loading pre-trained model: {e}')
         st.stop()
 
     # Data Preparation
@@ -480,209 +465,87 @@ with tabs[3]:
     target = 'cnt'
     features = bike_data.columns.drop(['instant', 'dteday', 'cnt', 'casual', 'registered'])
 
-    # Separate features (X) and target (y)
-    X = bike_data[features]
-    y = bike_data[target]
-
-    st.write('Splitting data into training and testing sets.')
+    # Feature Engineering: Ensure consistency with the training data
+    bike_data['lag_total_count'] = bike_data['cnt'].shift(1).fillna(0)
+    bike_data['temp_humidity'] = bike_data['temp'] * bike_data['hum']
 
     # Split the data into training and testing sets
-    # Note: Even though we are not retraining the model, we need a test set to evaluate the model
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    )
+    X = bike_data[features]
+    y = bike_data[target]
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     # Model Evaluation
     st.subheader('Model Evaluation')
 
-    # Use the pre-trained pipeline to make predictions on the test set
     try:
         y_pred = pipeline.predict(X_test)
+        mse = mean_squared_error(y_test, y_pred)
+        r2 = r2_score(y_test, y_pred)
+        mae = mean_absolute_error(y_test, y_pred)
+        rmse = np.sqrt(mse)
+        explained_variance = explained_variance_score(y_test, y_pred)
+        mape = mean_absolute_percentage_error(y_test, y_pred) * 100
+
+        st.write(f'- Mean Squared Error (MSE): {mse:.2f}')
+        st.write(f'- Root Mean Squared Error (RMSE): {rmse:.2f}')
+        st.write(f'- Mean Absolute Error (MAE): {mae:.2f}')
+        st.write(f'- R² Score: {r2:.2f}')
+        st.write(f'- Explained Variance Score: {explained_variance:.2f}')
+        st.write(f'- Mean Absolute Percentage Error (MAPE): {mape:.2f}%')
+
     except Exception as e:
         st.error(f'Error during prediction: {e}')
         st.stop()
-
-    # Calculate performance metrics
-    mse = mean_squared_error(y_test, y_pred)
-    r2 = r2_score(y_test, y_pred)
-    mae = mean_absolute_error(y_test, y_pred)
-    rmse = np.sqrt(mse)
-    explained_variance = explained_variance_score(y_test, y_pred)
-    mape = mean_absolute_percentage_error(y_test, y_pred) * 100
-
-    # Display performance metrics
-    st.write(f'**Loaded Model Performance:**')
-    st.write(f'- Mean Squared Error (MSE): {mse:.2f}')
-    st.write(f'- Root Mean Squared Error (RMSE): {rmse:.2f}')
-    st.write(f'- Mean Absolute Error (MAE): {mae:.2f}')
-    st.write(f'- R² Score: {r2:.2f}')
-
-    # Additional Metrics (Optional)
-    st.write(f'**Additional Metrics:**')
-    st.write(f'- Explained Variance Score: {explained_variance:.2f}')
-    st.write(f'- Mean Absolute Percentage Error (MAPE): {mape:.2f}%')
-
-    # Plotting Predicted vs Actual Values
-    st.subheader('📊 Predicted vs Actual Values')
-
-    fig_pred = px.scatter(
-        x=y_test,
-        y=y_pred,
-        labels={'x': 'Actual Values', 'y': 'Predicted Values'},
-        title='Actual vs Predicted Bike Counts',
-        trendline='ols'  # Adds a trendline to visualize correlation
-    )
-    fig_pred.update_layout(width=700, height=500)
-    st.plotly_chart(fig_pred)
-
-    # Plotting Residuals
-    st.subheader('📉 Residuals Plot')
-
-    residuals = y_test - y_pred
-    fig_resid = px.scatter(
-        x=y_pred,
-        y=residuals,
-        labels={'x': 'Predicted Values', 'y': 'Residuals'},
-        title='Residuals vs Predicted Values'
-    )
-    fig_resid.add_hline(y=0, line_dash="dash", line_color="red")
-    fig_resid.update_layout(width=700, height=500)
-    st.plotly_chart(fig_resid)
-
-    # Distribution of Residuals
-    st.subheader('📈 Residuals Distribution')
-
-    fig_resid_dist = px.histogram(
-        residuals,
-        nbins=50,
-        labels={'value': 'Residuals'},
-        title='Distribution of Residuals'
-    )
-    st.plotly_chart(fig_resid_dist)
-
-    # Q-Q Plot for Residuals
-    st.subheader('📊 Q-Q Plot for Residuals')
-
-    qq = stats.probplot(residuals, dist="norm")
-    fig_qq = plt.figure(figsize=(6, 4))
-    plt.plot(qq[0], 'o')
-    plt.plot(qq[0], qq[1], 'r-')
-    plt.title('Q-Q Plot')
-    st.pyplot(fig_qq)
-
-    # Store evaluation data into session state (Optional)
-    st.session_state['model_evaluation'] = {
-        'y_test': y_test,
-        'y_pred': y_pred,
-        'metrics': {
-            'MSE': mse,
-            'RMSE': rmse,
-            'MAE': mae,
-            'R2': r2,
-            'Explained Variance': explained_variance,
-            'MAPE': mape
-        },
-        'residuals': residuals
-    }
 
 # ====================== Simulator Tab ======================
 with tabs[4]:
     st.header('Bike Usage Prediction Simulator')
 
-    st.write('Use the controls below to input parameters and predict the expected number of bike users.')
-
-    # Load the pre-trained model using PyCaret's load_model
     try:
-        pipeline = load_model('scaler')  # Ensure that 'scaler.pkl' was saved using PyCaret's save_model('scaler')
+        pipeline = load_model('scaler')
     except Exception as e:
-        st.error(f'Error loading pre-trained model and scaler: {e}')
+        st.error(f'Error loading pre-trained model: {e}')
         st.stop()
 
     # Input features
-    # Use more descriptive variable names and provide default values for better UX
-    season = st.selectbox(
-        'Season',
-        [1, 2, 3, 4],
-        format_func=lambda x: {1: 'Spring', 2: 'Summer', 3: 'Fall', 4: 'Winter'}[x]
-    )
+    season = st.selectbox('Season', [1, 2, 3, 4], format_func=lambda x: {1: 'Spring', 2: 'Summer', 3: 'Fall', 4: 'Winter'}[x])
     hr = st.slider('Hour', 0, 23, 12)
     holiday = st.selectbox('Holiday', [0, 1], format_func=lambda x: 'Yes' if x == 1 else 'No')
     workingday = st.selectbox('Working Day', [0, 1], format_func=lambda x: 'Yes' if x == 1 else 'No')
-    weathersit = st.selectbox(
-        'Weather Situation',
-        [1, 2, 3, 4],
-        format_func=lambda x: {
-            1: 'Clear',
-            2: 'Mist',
-            3: 'Light Snow/Rain',
-            4: 'Heavy Rain'
-        }[x]
-    )
+    weathersit = st.selectbox('Weather Situation', [1, 2, 3, 4], format_func=lambda x: {1: 'Clear', 2: 'Mist', 3: 'Light Snow/Rain', 4: 'Heavy Rain'}[x])
     temp = st.slider('Temperature (normalized)', 0.0, 1.0, 0.5)
     hum = st.slider('Humidity (normalized)', 0.0, 1.0, 0.5)
     windspeed = st.slider('Wind Speed (normalized)', 0.0, 1.0, 0.5)
-    month = st.slider('Month', 1, 12, 6)
-    weekday = st.slider('Weekday (0=Sunday)', 0, 6, 3)
 
     # Create a DataFrame for the input features
     input_data = pd.DataFrame({
         'season': [season],
-        'yr': [0],  # Assuming year 2011
-        'mnth': [month],
         'hr': [hr],
         'holiday': [holiday],
-        'weekday': [weekday],
         'workingday': [workingday],
         'weathersit': [weathersit],
         'temp': [temp],
-        'atemp': [temp],  # Assuming 'atemp' is similar to 'temp'
         'hum': [hum],
         'windspeed': [windspeed],
-        'day': [15],  # Assuming mid-month
-        'month': [month],
-        'year': [0],  # Assuming year 2011
     })
 
-    # Perform the same feature engineering as before
-    # Categorize hour into time of day
-    def categorize_hour(hr):
-        if 6 <= hr < 12:
-            return 'Morning'
-        elif 12 <= hr < 18:
-            return 'Afternoon'
-        elif 18 <= hr < 24:
-            return 'Evening'
-        else:
-            return 'Night'
+    # Apply feature engineering
+    input_data['lag_total_count'] = 0  # Default placeholder for lag feature
+    input_data['temp_humidity'] = input_data['temp'] * input_data['hum']
 
-    # Apply the function to create a new feature
-    input_data['hour_category'] = input_data['hr'].apply(categorize_hour)
+    # Reindex input data to match model features
+    expected_features = pipeline.get_feature_names_out()
+    input_data = input_data.reindex(columns=expected_features, fill_value=0)
 
-    # One-hot encode the 'hour_category' feature
-    input_data = pd.get_dummies(input_data, columns=['hour_category'], drop_first=True)
-
-    # Encode 'is_holiday' as a categorical feature
-    input_data['is_holiday'] = 'No Holiday' if holiday == 0 else 'Holiday'
-    input_data = pd.get_dummies(input_data, columns=['is_holiday'], drop_first=True)
-
-    # Create polynomial features for 'temp' and 'hum'
-    input_data['temp_squared'] = input_data['temp'] ** 2
-    input_data['hum_squared'] = input_data['hum'] ** 2
-    input_data['temp_hum_interaction'] = input_data['temp'] * input_data['hum']
-
-    # Ensure the input_data has the same columns as training data
-    missing_cols = set(bike_data.columns.drop(['instant', 'dteday', 'cnt', 'casual', 'registered'])) - set(input_data.columns)
-    for col in missing_cols:
-        input_data[col] = 0
-    input_data = input_data[bike_data.columns.drop(['instant', 'dteday', 'cnt', 'casual', 'registered'])]
-
-    # Predict using the pre-trained pipeline
+    # Prediction
     try:
         prediction = pipeline.predict(input_data)
         predicted_count = int(prediction[0])
         st.subheader(f'Predicted Number of Bike Users: **{predicted_count}**')
     except Exception as e:
         st.error(f'Error during prediction: {e}')
+
+
 
 # ====================== Download Report Tab ======================
 with tabs[5]:
