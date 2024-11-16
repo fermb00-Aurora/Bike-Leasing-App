@@ -1,22 +1,11 @@
-# Core libraries
-pandas
-numpy
-scipy
-
-# Visualization libraries
-matplotlib
-seaborn
-plotly
-
-# Machine learning libraries
-scikit-learn
-joblib
-
-# Web application framework
-streamlit
-
-# PDF generation
-fpdf
-
-# System utilities
-os-sys
+streamlit>=1.26.0
+pandas>=1.5.0
+numpy>=1.24.0
+plotly>=5.15.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+scikit-learn==1.4.2
+scipy>=1.11.0
+joblib>=1.3.0
+fpdf>=1.7.2
+pycaret==3.3.2
