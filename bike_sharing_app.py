@@ -46,21 +46,17 @@ except Exception as e:
     st.error(f"An error occurred while loading the dataset: {e}")
     st.stop()
 
-# ====================== Load the Pre-trained Model and Scaler ======================
+# ====================== Load the Pre-trained Model ======================
 try:
-    # Use pickle_compat for compatibility issues when loading the scaler
-    with open('scaler.pkl', 'rb') as scaler_file:
-        scaler = pd.compat.pickle_compat.load(scaler_file)
-    st.success('Scaler loaded successfully.')
-
-    # Use pickle_compat for compatibility issues when loading the model
-    with open('model.pkl', 'rb') as model_file:
+    # Use pickle_compat for compatibility issues when loading the model (saved as 'scaler.pkl')
+    with open('scaler.pkl', 'rb') as model_file:
         model = pd.compat.pickle_compat.load(model_file)
     st.success('Pre-trained model loaded successfully.')
 
 except Exception as e:
-    st.error(f"Error loading pre-trained model and scaler: {e}")
+    st.error(f"Error loading pre-trained model: {e}")
     st.stop()
+
 
 # ====================== Data Cleaning & Feature Engineering ======================
 bike_data['dteday'] = pd.to_datetime(bike_data['dteday'])
