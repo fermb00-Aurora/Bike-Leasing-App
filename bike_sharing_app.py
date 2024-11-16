@@ -57,7 +57,6 @@ except Exception as e:
     st.error(f"Error loading pre-trained model: {e}")
     st.stop()
 
-
 # ====================== Data Cleaning & Feature Engineering ======================
 bike_data['dteday'] = pd.to_datetime(bike_data['dteday'])
 bike_data['day'] = bike_data['dteday'].dt.day
@@ -125,12 +124,9 @@ for col in missing_cols:
     input_data[col] = 0
 input_data = input_data[features]
 
-# Scale the input data
-input_data_scaled = scaler.transform(input_data)
-
 # Make predictions
 try:
-    prediction = model.predict(input_data_scaled)
+    prediction = model.predict(input_data)
     predicted_count = int(prediction[0])
     st.subheader(f'Predicted Number of Bike Users: **{predicted_count}**')
 except Exception as e:
