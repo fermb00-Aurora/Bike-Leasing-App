@@ -2,6 +2,7 @@
 import os
 import joblib
 import warnings
+import sys
 
 # Data manipulation and analysis
 import pandas as pd
@@ -20,7 +21,6 @@ from fpdf import FPDF
 
 # Machine learning libraries
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, r2_score
 import scipy.stats as stats
 
@@ -65,7 +65,8 @@ tabs = st.tabs([
     'Predictive Modeling',
     'Simulator',
     'Download Report',
-    'Feedback'
+    'Feedback',
+    'About'
 ])
 
 # ====================== Data Overview Tab ======================
@@ -84,7 +85,10 @@ with tabs[0]:
     # Check for missing values
     st.subheader('Missing Values')
     missing_values = bike_data.isnull().sum()
-    st.write(missing_values[missing_values > 0])
+    if missing_values.sum() > 0:
+        st.write(missing_values[missing_values > 0])
+    else:
+        st.write("No missing values found.")
 
     # Check for duplicate rows
     st.subheader('Duplicate Rows')
@@ -180,6 +184,22 @@ with tabs[2]:
 
     fig = px.histogram(bike_data, x='cnt', nbins=50, title='Distribution of Total Bike Rentals')
     st.plotly_chart(fig)
+
+    # Compute statistics
+    mean_cnt = bike_data['cnt'].mean()
+    median_cnt = bike_data['cnt'].median()
+    skewness_cnt = bike_data['cnt'].skew()
+
+    # Display dynamic comments
+    st.write(f"**Average Rentals:** {mean_cnt:.2f}")
+    st.write(f"**Median Rentals:** {median_cnt:.2f}")
+    st.write(f"**Skewness:** {skewness_cnt:.2f}")
+    if skewness_cnt > 0:
+        st.write('The distribution is right-skewed, indicating a longer tail on the right.')
+    elif skewness_cnt < 0:
+        st.write('The distribution is left-skewed, indicating a longer tail on the left.')
+    else:
+        st.write('The distribution is symmetric.')
 
     # ====================== 2. Correlation Heatmap ======================
     st.subheader('2. Correlation Heatmap')
@@ -419,17 +439,23 @@ with tabs[2]:
 with tabs[3]:
     st.header('Predictive Modeling')
 
-    # Load the pre-trained model and scaler
-    st.subheader('Load Pre-trained Model')
+    # Load the pre-trained model and scaler (assuming scaler.pkl contains the pipeline)
+    st.subheader('Load Pre-trained Model and Scaler')
 
     try:
-        # Load the scaler
-        scaler = joblib.load('scaler.pkl')
-        # Load the pre-trained best model
-        best_model = joblib.load('best_model.pkl')
+        # Load the scaler (pipeline that includes the model)
+        pipeline = joblib.load('scaler.pkl')
         st.success('Pre-trained model and scaler loaded successfully.')
     except Exception as e:
-        st.error(f'Error loading pre-trained model and scaler: {e}')
+        error_msg = str(e)
+        st.error(f'Error loading pre-trained model and scaler: {error_msg}')
+        
+        # Check if the error is related to Python version incompatibility
+        if 'Pycaret only supports python' in error_msg:
+            # URL of the GIF you want to display
+            gif_url = "https://media.giphy.com/media/3o6UB4cLhGn9JjdT7y/giphy.gif"  # Replace with your desired GIF URL
+            st.image(gif_url, caption='Please downgrade your Python version to 3.11 or below.', use_column_width=True)
+        
         st.stop()
 
     # Data Preparation
@@ -449,18 +475,15 @@ with tabs[3]:
     # Note: Even though we are not retraining the model, we need a test set to evaluate the model
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    # Feature Scaling
-    st.write('Scaling features using the loaded StandardScaler.')
-
-    # Transform the features using the loaded scaler
-    X_train_scaled = scaler.transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-
     # Model Evaluation
     st.subheader('Model Evaluation')
 
-    # Use the pre-trained model to make predictions on the test set
-    y_pred = best_model.predict(X_test_scaled)
+    # Use the pre-trained pipeline to make predictions on the test set
+    try:
+        y_pred = pipeline.predict(X_test)
+    except Exception as e:
+        st.error(f'Error during prediction: {e}')
+        st.stop()
 
     # Calculate performance metrics
     mse = mean_squared_error(y_test, y_pred)
@@ -488,8 +511,7 @@ with tabs[4]:
 
     # Load the pre-trained model and scaler
     try:
-        best_model = joblib.load('best_model.pkl')
-        scaler = joblib.load('scaler.pkl')
+        pipeline = joblib.load('scaler.pkl')
     except Exception as e:
         st.error(f'Error loading pre-trained model and scaler: {e}')
         st.stop()
@@ -507,7 +529,12 @@ with tabs[4]:
     weathersit = st.selectbox(
         'Weather Situation',
         [1, 2, 3, 4],
-        format_func=lambda x: {1: 'Clear', 2: 'Mist', 3: 'Light Snow/Rain', 4: 'Heavy Rain'}[x]
+        format_func=lambda x: {
+            1: 'Clear',
+            2: 'Mist',
+            3: 'Light Snow/Rain',
+            4: 'Heavy Rain'
+        }[x]
     )
     temp = st.slider('Temperature (normalized)', 0.0, 1.0, 0.5)
     hum = st.slider('Humidity (normalized)', 0.0, 1.0, 0.5)
@@ -562,18 +589,18 @@ with tabs[4]:
     input_data['temp_hum_interaction'] = input_data['temp'] * input_data['hum']
 
     # Ensure the input_data has the same columns as training data
-    missing_cols = set(X.columns) - set(input_data.columns)
+    missing_cols = set(bike_data.columns.drop(['instant', 'dteday', 'cnt', 'casual', 'registered'])) - set(input_data.columns)
     for col in missing_cols:
         input_data[col] = 0
-    input_data = input_data[X.columns]
+    input_data = input_data[bike_data.columns.drop(['instant', 'dteday', 'cnt', 'casual', 'registered'])]
 
-    # Scale the input data
-    input_data_scaled = scaler.transform(input_data)
-
-    # Predict using the pre-trained model
-    prediction = best_model.predict(input_data_scaled)
-
-    st.subheader(f'Predicted Number of Bike Users: **{int(prediction[0])}**')
+    # Predict using the pre-trained pipeline
+    try:
+        prediction = pipeline.predict(input_data)
+        predicted_count = int(prediction[0])
+        st.subheader(f'Predicted Number of Bike Users: **{predicted_count}**')
+    except Exception as e:
+        st.error(f'Error during prediction: {e}')
 
 # ====================== Download Report Tab ======================
 with tabs[5]:
@@ -656,7 +683,7 @@ with tabs[5]:
 
                 # Include model evaluation metrics
                 model_summary = (
-                    f"- **Model Used:** Pre-trained Random Forest Regressor\n"
+                    f"- **Model Used:** Pre-trained Pipeline (Scaler + Model)\n"
                     f"- **Mean Squared Error (MSE):** {mse:.2f}\n"
                     f"- **R² Score:** {r2:.2f}\n"
                     "- **Model Insights:** The model accurately predicts bike rental demand, assisting in proactive planning.\n"
@@ -715,3 +742,42 @@ with tabs[6]:
             # Placeholder for feedback storage (e.g., database or email)
             # Implement actual storage mechanism as needed
             st.success("Thank you for your feedback!")
+
+# ====================== About Tab ======================
+with tabs[7]:
+    st.header('About')
+
+    st.markdown("""
+    ### Washington D.C. Bike Sharing Service Analysis Dashboard
+
+    This dashboard was developed using **Streamlit**, an open-source Python library for creating interactive web applications for data science and machine learning.
+
+    **Technologies Used:**
+    - **Python**: For data manipulation and analysis.
+    - **Pandas**: For data manipulation and cleaning.
+    - **NumPy**: For numerical computations.
+    - **Scikit-learn**: For machine learning modeling.
+    - **PyCaret**: For simplifying machine learning workflows.
+    - **Matplotlib & Seaborn**: For data visualization.
+    - **Plotly**: For interactive visualizations.
+    - **Streamlit**: For creating the web application.
+    - **FPDF**: For generating PDF reports.
+
+    **Project Objectives:**
+    - To analyze the bike-sharing usage patterns in Washington D.C.
+    - To understand the impact of environmental and temporal factors on bike rentals.
+    - To provide recommendations to users on whether it's a good day to rent a bike.
+    - To offer stakeholders actionable insights through an interactive dashboard and downloadable reports.
+
+    **Developed By:**
+    - *Your Name*
+    - [LinkedIn](https://www.linkedin.com)
+    - [GitHub](https://www.github.com)
+
+    **Acknowledgments:**
+    - Dataset obtained from the UCI Machine Learning Repository.
+    - Inspired by various data science projects and analyses in the field.
+
+    **Contact Us:**
+    If you have any questions or feedback, please reach out at [email@example.com](mailto:email@example.com).
+    """)
