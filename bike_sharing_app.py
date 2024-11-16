@@ -446,16 +446,22 @@ with tabs[3]:
         # Load the scaler (pipeline that includes the model)
         pipeline = joblib.load('scaler.pkl')
         st.success('Pre-trained model and scaler loaded successfully.')
+    except FileNotFoundError:
+        st.error("File 'scaler.pkl' not found. Please ensure it is in the correct directory.")
+        st.stop()
+    except ImportError as ie:
+        st.error(f'Import Error: {ie}')
+        st.stop()
     except Exception as e:
         error_msg = str(e)
         st.error(f'Error loading pre-trained model and scaler: {error_msg}')
-        
+
         # Check if the error is related to Python version incompatibility
         if 'Pycaret only supports python' in error_msg:
             # URL of the GIF you want to display
             gif_url = "https://media.giphy.com/media/3o6UB4cLhGn9JjdT7y/giphy.gif"  # Replace with your desired GIF URL
             st.image(gif_url, caption='Please downgrade your Python version to 3.11 or below.', use_column_width=True)
-        
+
         st.stop()
 
     # Data Preparation
@@ -489,7 +495,9 @@ with tabs[3]:
     mse = mean_squared_error(y_test, y_pred)
     r2 = r2_score(y_test, y_pred)
 
-    st.write(f'Loaded Model MSE: {mse:.2f}, R²: {r2:.2f}')
+    st.write(f'**Loaded Model Performance:**')
+    st.write(f'- Mean Squared Error (MSE): {mse:.2f}')
+    st.write(f'- R² Score: {r2:.2f}')
 
     # Plotting predictions vs actual values
     st.subheader('Predictions vs Actual Values')
@@ -499,7 +507,8 @@ with tabs[3]:
         x=y_test,
         y=y_pred,
         labels={'x': 'Actual Values', 'y': 'Predicted Values'},
-        title='Actual vs Predicted Bike Counts'
+        title='Actual vs Predicted Bike Counts',
+        trendline='ols'  # Adds a trendline to visualize correlation
     )
     st.plotly_chart(fig)
 
