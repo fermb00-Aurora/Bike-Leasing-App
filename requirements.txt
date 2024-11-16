@@ -8,5 +8,4 @@ pycaret
 lightgbm
 plotly
 fpdf
-llvmlite
-numba
+
