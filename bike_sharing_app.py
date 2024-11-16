@@ -1,81 +1,83 @@
+# Import necessary libraries
 import os
 import joblib
+import warnings
+import sys
+
+# Data manipulation and analysis
 import pandas as pd
-import streamlit as st
 import numpy as np
-import pandas.core.indexes.numeric  # Explicit import to fix the issue
 
-# Streamlit App Configuration
-st.set_page_config(
-    page_title='Bike Sharing Prediction App',
-    layout='wide',
-    initial_sidebar_state='expanded'
+# Visualization libraries
+import plotly.express as px
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Streamlit for interactive web applications
+import streamlit as st
+
+# PDF generation
+from fpdf import FPDF
+
+# Machine learning libraries
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import (
+    mean_squared_error,
+    r2_score,
+    mean_absolute_error,
+    explained_variance_score,
+    mean_absolute_percentage_error
 )
+import scipy.stats as stats
 
-st.title('🚴‍♂️ Bike Sharing Demand Prediction App')
+# Import load_model from PyCaret
+from pycaret.regression import load_model
 
-# Load the model
-@st.cache_data(show_spinner=False)
-def load_model():
-    model_path = "scaler.pkl"
-    if not os.path.exists(model_path):
-        st.error(f"Model file not found at {model_path}. Please ensure the model is in the correct directory.")
-        st.stop()
-    try:
-        # Use fix_imports=True to handle potential import errors
-        model = joblib.load(model_path, fix_imports=True)
-        st.success("Model loaded successfully!")
-        return model
-    except Exception as e:
-        st.error(f"Error loading model: {e}")
-        st.stop()
+import pickle
+
+# SIMULATION
+ 
+# Load the pickled model and scaler
+pipeline = load_model('final_model')
+
+with tabs[3]:
+    st.header('Predictive Modeling')
+
+    # Input features
+    # Use more descriptive variable names and provide default values for better UX
+    # Streamlit header
+    st.header('Bike Rental Prediction')
+
+    # Input for hour of the day (hr)
+    hour = st.slider('Select Hour of the Day (hr)', 0, 23, 12)
+
+    # Get the previous hour's cnt value (lag_total_count)
+    prev_hour = (hour - 1) % 24  # Ensuring that the hour wraps around (for hour 0, the previous hour is 23)
+    prev_cnt = bike_data[bike_data['hr'] == prev_hour]['cnt'].values[0]  # Get cnt value from previous hour
+
+    # Input for temperature and humidity to calculate temp_humidity
+    temp = st.slider('Temperature (temp)', 0.0, 1.0, 0.5)
+    humidity = st.slider('Humidity (humidity)', 0.0, 1.0, 0.5)
+    temp_humidity = temp * humidity  # Calculate temp_humidity as product of temp and humidity
+
+    # Input for working day (workingday)
+    workingday = st.selectbox('Working Day', [0, 1], format_func=lambda x: 'Yes' if x == 1 else 'No')
+
+    # Prepare the input data for prediction
+    input_data = pd.DataFrame({
+        'lag_total_count': [prev_cnt],  # Previous hour's cnt value (lag_total_count)
+        'hr': [hour],
+        'temp_humidity': [temp_humidity],
+        'workingday': [workingday]
+    })
+
+    # Prediction
+    if st.button('Predict'):
+        # Perform the prediction using the loaded model
+        prediction = pipeline.predict(input_data)
+        predicted_count = int(prediction[0])  # Get the predicted count
+        
+        st.subheader(f'Predicted Number of Bike Users: {predicted_count}')
 
 
-# Load the model
-model = load_model()
-
-# Input features
-st.header("📊 Input Features for Prediction")
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    season = st.selectbox("Season", options=[1, 2, 3, 4], help="1: Spring, 2: Summer, 3: Fall, 4: Winter")
-    month = st.selectbox("Month", options=list(range(1, 13)))
-    hour = st.slider("Hour", min_value=0, max_value=23, value=12)
-
-with col2:
-    holiday = st.selectbox("Holiday (0 = No, 1 = Yes)", options=[0, 1])
-    weekday = st.selectbox("Weekday (0 = Sunday, 6 = Saturday)", options=list(range(0, 7)))
-    workingday = st.selectbox("Working Day (0 = No, 1 = Yes)", options=[0, 1])
-
-with col3:
-    temp = st.number_input("Temperature (°C)", value=20.0)
-    humidity = st.number_input("Humidity (%)", value=50.0)
-    windspeed = st.number_input("Windspeed (m/s)", value=5.0)
-
-# Prepare input data for prediction
-input_data = pd.DataFrame([{
-    "season": season,
-    "month": month,
-    "hour": hour,
-    "holiday": holiday,
-    "weekday": weekday,
-    "workingday": workingday,
-    "temp": temp,
-    "humidity": humidity,
-    "windspeed": windspeed
-}])
-
-st.subheader("🚀 Prediction")
-if st.button("Predict"):
-    try:
-        # Make a prediction
-        prediction = model.predict(input_data)
-        st.success(f"Predicted Bike Count: {int(prediction[0])}")
-    except Exception as e:
-        st.error(f"Prediction error: {e}")
-
-# Footer
-st.markdown("---")
-st.markdown("Developed by Fernando Moreno Borrego")
 
