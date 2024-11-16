@@ -1,161 +1,76 @@
-"""
-Bike Sharing Prediction Dashboard
-Author: Fernando Moreno Borrego
-Date: 16.11.2024
-Description:
-A Streamlit application for analyzing and predicting bike sharing demand using a pre-trained model (`scaler.pkl`).
-"""
+# app.py
 
-# Import necessary libraries
-import os
-import joblib
-import warnings
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-import plotly.express as px
 import streamlit as st
+import joblib
+import numpy as np
+import pandas as pd
+import warnings
 
-# Suppress warnings for cleaner output
+# Suppress warnings
 warnings.filterwarnings("ignore")
 
-# Streamlit App Configuration
-st.set_page_config(
-    page_title='🚴‍♂️ Bike Sharing Prediction Dashboard',
-    layout='wide',
-    initial_sidebar_state='expanded'
-)
+# App configuration
+st.set_page_config(page_title="🚴‍♂️ Bike Leasing Prediction", layout="centered")
 
-# Title and Sidebar Menu
-st.title('🚴‍♂️ Bike Sharing Prediction Dashboard')
-st.sidebar.header("Navigation Menu")
-page_selection = st.sidebar.radio("Go to", [
-    "Introduction",
-    "Data Overview",
-    "Simulator",
-    "Feedback"
-])
-
-# Function to load the dataset
-@st.cache_data(show_spinner=False)
-def load_data() -> pd.DataFrame:
-    """Loads the bike sharing dataset."""
-    data_path = 'hour.csv'
-    if not os.path.exists(data_path):
-        st.error(f"Data file not found at {data_path}. Please ensure the dataset is in the correct directory.")
-        st.stop()
-    df = pd.read_csv(data_path)
-    return df
-
-# Function to load the pre-trained model (scaler.pkl)
+# Load the pre-trained model
 @st.cache_resource(show_spinner=False)
 def load_model():
     """Loads the pre-trained model (scaler.pkl)."""
-    model_path = 'scaler.pkl'
-    if not os.path.exists(model_path):
-        st.error(f"Model file not found at {model_path}. Please ensure `scaler.pkl` is in the correct directory.")
+    try:
+        model = joblib.load("scaler.pkl")
+        return model
+    except Exception as e:
+        st.error(f"Error loading model: {e}")
         st.stop()
-    model = joblib.load(model_path)
-    return model
 
-# Load the dataset and model
-df = load_data()
 model = load_model()
 
-# Introduction Page
-if page_selection == "Introduction":
-    st.header("📘 Executive Summary")
-    st.markdown("""
-    **Objective:**  
-    This dashboard provides an interactive analysis and prediction platform for bike sharing demand. It uses a pre-trained model to make predictions based on various features.
-    
-    **Key Features:**
-    - Data Overview: Explore the bike sharing dataset with summary statistics and visualizations.
-    - Simulator: Input different features to predict bike rental demand using the pre-trained model.
-    - Feedback: Provide your valuable suggestions for improving this dashboard.
-    """)
+# User input function
+def user_input():
+    st.header("🔍 Enter Bike Leasing Features")
 
-# Data Overview Page
-elif page_selection == "Data Overview":
-    st.header("🔍 Data Overview")
+    # User input for key features (customize these based on your dataset)
+    season = st.selectbox("Season", options=["Spring", "Summer", "Fall", "Winter"])
+    year = st.selectbox("Year", options=[0, 1], help="0 for 2011, 1 for 2012")
+    month = st.slider("Month", 1, 12, step=1)
+    holiday = st.selectbox("Holiday", options=[0, 1], help="0 for No, 1 for Yes")
+    weekday = st.slider("Weekday (0=Sunday, 6=Saturday)", 0, 6)
+    workingday = st.selectbox("Working Day", options=[0, 1])
+    weather = st.slider("Weather (1=Clear, 4=Heavy Rain)", 1, 4)
+    temp = st.slider("Temperature (°C)", 0.0, 40.0, step=0.1)
+    humidity = st.slider("Humidity (%)", 0, 100, step=1)
+    windspeed = st.slider("Wind Speed (km/h)", 0.0, 50.0, step=0.1)
 
-    # Dataset Preview
-    st.subheader("📂 Dataset Preview")
-    st.dataframe(df.head(10).style.highlight_max(axis=0))
+    # Create a DataFrame from user input
+    input_data = pd.DataFrame({
+        "season": [season],
+        "year": [year],
+        "month": [month],
+        "holiday": [holiday],
+        "weekday": [weekday],
+        "workingday": [workingday],
+        "weather": [weather],
+        "temp": [temp],
+        "humidity": [humidity],
+        "windspeed": [windspeed]
+    })
 
-    # Summary Statistics
-    st.subheader("📊 Data Summary")
-    st.dataframe(df.describe().T.style.background_gradient(cmap='YlGnBu'))
+    return input_data
 
-    # Correlation Heatmap
-    st.subheader("🔗 Feature Correlation Heatmap")
-    corr = df.corr()
-    fig_corr = px.imshow(
-        corr,
-        x=corr.columns,
-        y=corr.columns,
-        color_continuous_scale='YlOrBr',
-        title='Correlation Heatmap of Features',
-        aspect="auto",
-        labels=dict(color="Correlation")
-    )
-    st.plotly_chart(fig_corr, use_container_width=True)
+# Main function
+def main():
+    st.title("🚴‍♂️ Bike Leasing Prediction App")
+    st.markdown("Predict the total bike count based on input features.")
 
-# Simulator Page
-elif page_selection == "Simulator":
-    st.header("🚀 Bike Rental Demand Simulator")
-    st.markdown("""
-    **Predict Bike Rentals:**  
-    Input feature values to predict the total bike rentals using the pre-trained model (`scaler.pkl`).
-    """)
-
-    # Input Feature Values
-    st.subheader("🔍 Enter Feature Values")
-    col1, col2 = st.columns(2)
-
-    with col1:
-        temp = st.slider('Temperature (normalized)', 0.0, 1.0, 0.5)
-        humidity = st.slider('Humidity (normalized)', 0.0, 1.0, 0.5)
-        windspeed = st.slider('Windspeed (normalized)', 0.0, 1.0, 0.5)
-
-    with col2:
-        month = st.selectbox('Month', list(range(1, 13)))
-        hour = st.selectbox('Hour', list(range(0, 24)))
-        weekday = st.selectbox('Weekday', list(range(0, 7)))
-
-    # Create input data for prediction
-    input_data = pd.DataFrame([{
-        'temp': temp,
-        'humidity': humidity,
-        'windspeed': windspeed,
-        'month': month,
-        'hour': hour,
-        'weekday': weekday
-    }])
+    # Get user input
+    input_data = user_input()
 
     # Make prediction
     if st.button("Predict"):
         try:
+            # Preprocess input data
+            # (Add any necessary preprocessing here based on your model training)
             prediction = model.predict(input_data)[0]
-            st.success(f"🚴‍♂️ Predicted Total Rentals: {int(prediction)}")
+            st.success(f"🚲 Predicted Total Count: {int(prediction)} bikes")
         except Exception as e:
-            st.error(f"Error during prediction: {e}")
-
-# Feedback Page
-elif page_selection == "Feedback":
-    st.header("💬 Feedback")
-    st.markdown("""
-    **We Value Your Feedback:**  
-    Help us improve the Bike Sharing Prediction Dashboard by providing your feedback and suggestions.
-    """)
-
-    feedback = st.text_area("Provide your feedback here:")
-    if st.button("Submit Feedback"):
-        if feedback.strip() == "":
-            st.warning("Please enter your feedback before submitting.")
-        else:
-            st.success("Thank you for your feedback!")
-
-else:
-    st.error("Page not found.")
+            st.error(f"Prediction error: {e}")
