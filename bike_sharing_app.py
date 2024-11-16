@@ -766,7 +766,6 @@ with tabs[7]:
     - **Pandas**: For data manipulation and cleaning.
     - **NumPy**: For numerical computations.
     - **Scikit-learn**: For machine learning modeling.
-    - **PyCaret**: For simplifying machine learning workflows.
     - **Matplotlib & Seaborn**: For data visualization.
     - **Plotly**: For interactive visualizations.
     - **Streamlit**: For creating the web application.
