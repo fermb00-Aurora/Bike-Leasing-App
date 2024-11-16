@@ -10,6 +10,6 @@ plotly==5.15.0
 fpdf==1.7.2
 llvmlite==0.39.1
 numba==0.56.4
-
+joblib==1.0.1
 
 
