@@ -1,76 +1,79 @@
-# app.py
-
-import streamlit as st
+import os
 import joblib
-import numpy as np
 import pandas as pd
-import warnings
+import streamlit as st
+import numpy as np
+import pandas.core.indexes.numeric  # Explicit import to fix the issue
 
-# Suppress warnings
-warnings.filterwarnings("ignore")
+# Streamlit App Configuration
+st.set_page_config(
+    page_title='Bike Sharing Prediction App',
+    layout='wide',
+    initial_sidebar_state='expanded'
+)
 
-# App configuration
-st.set_page_config(page_title="🚴‍♂️ Bike Leasing Prediction", layout="centered")
+st.title('🚴‍♂️ Bike Sharing Demand Prediction App')
 
-# Load the pre-trained model
-@st.cache_resource(show_spinner=False)
+# Load the model
+@st.cache_data(show_spinner=False)
 def load_model():
-    """Loads the pre-trained model (scaler.pkl)."""
+    model_path = "scaler.pkl"
+    if not os.path.exists(model_path):
+        st.error(f"Model file not found at {model_path}. Please ensure the model is in the correct directory.")
+        st.stop()
     try:
-        model = joblib.load("scaler.pkl")
+        model = joblib.load(model_path)
+        st.success("Model loaded successfully!")
         return model
     except Exception as e:
         st.error(f"Error loading model: {e}")
         st.stop()
 
+# Load the model
 model = load_model()
 
-# User input function
-def user_input():
-    st.header("🔍 Enter Bike Leasing Features")
+# Input features
+st.header("📊 Input Features for Prediction")
+col1, col2, col3 = st.columns(3)
 
-    # User input for key features (customize these based on your dataset)
-    season = st.selectbox("Season", options=["Spring", "Summer", "Fall", "Winter"])
-    year = st.selectbox("Year", options=[0, 1], help="0 for 2011, 1 for 2012")
-    month = st.slider("Month", 1, 12, step=1)
-    holiday = st.selectbox("Holiday", options=[0, 1], help="0 for No, 1 for Yes")
-    weekday = st.slider("Weekday (0=Sunday, 6=Saturday)", 0, 6)
-    workingday = st.selectbox("Working Day", options=[0, 1])
-    weather = st.slider("Weather (1=Clear, 4=Heavy Rain)", 1, 4)
-    temp = st.slider("Temperature (°C)", 0.0, 40.0, step=0.1)
-    humidity = st.slider("Humidity (%)", 0, 100, step=1)
-    windspeed = st.slider("Wind Speed (km/h)", 0.0, 50.0, step=0.1)
+with col1:
+    season = st.selectbox("Season", options=[1, 2, 3, 4], help="1: Spring, 2: Summer, 3: Fall, 4: Winter")
+    month = st.selectbox("Month", options=list(range(1, 13)))
+    hour = st.slider("Hour", min_value=0, max_value=23, value=12)
 
-    # Create a DataFrame from user input
-    input_data = pd.DataFrame({
-        "season": [season],
-        "year": [year],
-        "month": [month],
-        "holiday": [holiday],
-        "weekday": [weekday],
-        "workingday": [workingday],
-        "weather": [weather],
-        "temp": [temp],
-        "humidity": [humidity],
-        "windspeed": [windspeed]
-    })
+with col2:
+    holiday = st.selectbox("Holiday (0 = No, 1 = Yes)", options=[0, 1])
+    weekday = st.selectbox("Weekday (0 = Sunday, 6 = Saturday)", options=list(range(0, 7)))
+    workingday = st.selectbox("Working Day (0 = No, 1 = Yes)", options=[0, 1])
 
-    return input_data
+with col3:
+    temp = st.number_input("Temperature (°C)", value=20.0)
+    humidity = st.number_input("Humidity (%)", value=50.0)
+    windspeed = st.number_input("Windspeed (m/s)", value=5.0)
 
-# Main function
-def main():
-    st.title("🚴‍♂️ Bike Leasing Prediction App")
-    st.markdown("Predict the total bike count based on input features.")
+# Prepare input data for prediction
+input_data = pd.DataFrame([{
+    "season": season,
+    "month": month,
+    "hour": hour,
+    "holiday": holiday,
+    "weekday": weekday,
+    "workingday": workingday,
+    "temp": temp,
+    "humidity": humidity,
+    "windspeed": windspeed
+}])
 
-    # Get user input
-    input_data = user_input()
+st.subheader("🚀 Prediction")
+if st.button("Predict"):
+    try:
+        # Make a prediction
+        prediction = model.predict(input_data)
+        st.success(f"Predicted Bike Count: {int(prediction[0])}")
+    except Exception as e:
+        st.error(f"Prediction error: {e}")
 
-    # Make prediction
-    if st.button("Predict"):
-        try:
-            # Preprocess input data
-            # (Add any necessary preprocessing here based on your model training)
-            prediction = model.predict(input_data)[0]
-            st.success(f"🚲 Predicted Total Count: {int(prediction)} bikes")
-        except Exception as e:
-            st.error(f"Prediction error: {e}")
+# Footer
+st.markdown("---")
+st.markdown("Developed by Fernando Moreno Borrego")
+
