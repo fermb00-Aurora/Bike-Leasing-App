@@ -435,82 +435,216 @@ with tabs[2]:
       - Engineered features (e.g., lag, rolling averages, cyclical encoding) reveal valuable temporal dependencies and patterns.
     """)
 
-# ====================== Predictive Modeling Tab ======================
-with tabs[3]:
-    st.header('Predictive Modeling')
+    # ====================== Predictive Modeling Tab ======================
+    with tabs[3]:
+        st.header('Predictive Modeling')
 
-    # Load the pre-trained model and scaler (assuming scaler.pkl contains the pipeline)
-    st.subheader('Load Pre-trained Model and Scaler')
+        # Load the pre-trained model and scaler (assuming scaler.pkl contains the pipeline)
+        st.subheader('Load Pre-trained Model and Scaler')
 
-    try:
-        # Load the scaler (pipeline that includes the model)
-        pipeline = joblib.load('scaler.pkl')
-        st.success('Pre-trained model and scaler loaded successfully.')
-    except FileNotFoundError:
-        st.error("File 'scaler.pkl' not found. Please ensure it is in the correct directory.")
-        st.stop()
-    except ImportError as ie:
-        st.error(f'Import Error: {ie}')
-        st.stop()
-    except Exception as e:
-        error_msg = str(e)
-        st.error(f'Error loading pre-trained model and scaler: {error_msg}')
+        try:
+            # Load the pipeline that includes scaler and model
+            pipeline = joblib.load('scaler.pkl')
+            st.success('Pre-trained model and scaler loaded successfully.')
+        except FileNotFoundError:
+            st.error("File 'scaler.pkl' not found. Please ensure it is in the correct directory.")
+            st.stop()
+        except ImportError as ie:
+            st.error(f'Import Error: {ie}')
+            st.stop()
+        except Exception as e:
+            error_msg = str(e)
+            st.error(f'Error loading pre-trained model and scaler: {error_msg}')
 
-        # Check if the error is related to Python version incompatibility
-        if 'Pycaret only supports python' in error_msg:
-            # URL of the GIF you want to display
-            gif_url = "https://media.giphy.com/media/3o6UB4cLhGn9JjdT7y/giphy.gif"  # Replace with your desired GIF URL
-            st.image(gif_url, caption='Please downgrade your Python version to 3.11 or below.', use_column_width=True)
+            # Check if the error is related to Python version incompatibility
+            if 'Pycaret only supports python' in error_msg:
+                # URL of the GIF you want to display
+                gif_url = "https://media.giphy.com/media/3o6UB4cLhGn9JjdT7y/giphy.gif"  # Replace with your desired GIF URL
+                st.image(gif_url, caption='Please downgrade your Python version to 3.11 or below.', use_column_width=True)
 
-        st.stop()
+            st.stop()
 
-    # Data Preparation
-    st.subheader('Data Preparation')
+        # Data Preparation
+        st.subheader('Data Preparation')
 
-    # Define the target variable and features
-    target = 'cnt'
-    features = bike_data.columns.drop(['instant', 'dteday', 'cnt', 'casual', 'registered'])
+        # Define the target variable and features
+        target = 'cnt'
+        features = bike_data.columns.drop(['instant', 'dteday', 'cnt', 'casual', 'registered'])
 
-    # Separate features (X) and target (y)
-    X = bike_data[features]
-    y = bike_data[target]
+        # Separate features (X) and target (y)
+        X = bike_data[features]
+        y = bike_data[target]
 
-    st.write('Splitting data into training and testing sets.')
+        st.write('Splitting data into training and testing sets.')
 
-    # Split the data into training and testing sets
-    # Note: Even though we are not retraining the model, we need a test set to evaluate the model
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        # Split the data into training and testing sets
+        # Note: Even though we are not retraining the model, we need a test set to evaluate the model
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
 
-    # Model Evaluation
-    st.subheader('Model Evaluation')
+        # Model Evaluation
+        st.subheader('Model Evaluation')
 
-    # Use the pre-trained pipeline to make predictions on the test set
-    try:
-        y_pred = pipeline.predict(X_test)
-    except Exception as e:
-        st.error(f'Error during prediction: {e}')
-        st.stop()
+        # Use the pre-trained pipeline to make predictions on the test set
+        try:
+            y_pred = pipeline.predict(X_test)
+            y_pred_proba = pipeline.predict(X_test)  # If applicable; for regression, probability estimates aren't standard
+        except Exception as e:
+            st.error(f'Error during prediction: {e}')
+            st.stop()
 
-    # Calculate performance metrics
-    mse = mean_squared_error(y_test, y_pred)
-    r2 = r2_score(y_test, y_pred)
+        # Calculate performance metrics
+        mse = mean_squared_error(y_test, y_pred)
+        rmse = np.sqrt(mse)
+        mae = mean_absolute_error(y_test, y_pred)
+        r2 = r2_score(y_test, y_pred)
 
-    st.write(f'**Loaded Model Performance:**')
-    st.write(f'- Mean Squared Error (MSE): {mse:.2f}')
-    st.write(f'- R² Score: {r2:.2f}')
+        st.write(f'**Loaded Model Performance:**')
+        st.write(f'- Mean Squared Error (MSE): {mse:.2f}')
+        st.write(f'- Root Mean Squared Error (RMSE): {rmse:.2f}')
+        st.write(f'- Mean Absolute Error (MAE): {mae:.2f}')
+        st.write(f'- R² Score: {r2:.2f}')
 
-    # Plotting predictions vs actual values
-    st.subheader('Predictions vs Actual Values')
+        # Plotting predictions vs actual values
+        st.subheader('Predictions vs Actual Values')
 
-    # Plot actual vs predicted values
-    fig = px.scatter(
-        x=y_test,
-        y=y_pred,
-        labels={'x': 'Actual Values', 'y': 'Predicted Values'},
-        title='Actual vs Predicted Bike Counts',
-        trendline='ols'  # Adds a trendline to visualize correlation
-    )
-    st.plotly_chart(fig)
+        # Scatter plot of Actual vs Predicted
+        fig_actual_pred = px.scatter(
+            x=y_test,
+            y=y_pred,
+            labels={'x': 'Actual Values', 'y': 'Predicted Values'},
+            title='Actual vs Predicted Bike Counts',
+            trendline='ols'  # Adds a trendline to visualize correlation
+        )
+        st.plotly_chart(fig_actual_pred)
+
+        # Residuals Analysis
+        st.subheader('Residuals Analysis')
+
+        # Calculate residuals
+        residuals = y_test - y_pred
+
+        # Scatter plot of Residuals vs Predicted
+        fig_residuals = px.scatter(
+            x=y_pred,
+            y=residuals,
+            labels={'x': 'Predicted Values', 'y': 'Residuals'},
+            title='Residuals vs Predicted Values'
+        )
+        fig_residuals.add_hline(y=0, line_dash="dash", line_color="red")
+        st.plotly_chart(fig_residuals)
+
+        # Distribution of Residuals
+        st.subheader('Distribution of Residuals')
+
+        fig_residuals_dist = px.histogram(
+            residuals,
+            nbins=50,
+            title='Distribution of Residuals',
+            labels={'value': 'Residuals'},
+            opacity=0.75
+        )
+        st.plotly_chart(fig_residuals_dist)
+
+        # Q-Q Plot of Residuals
+        st.subheader('Q-Q Plot of Residuals')
+
+        fig_qq = plt.figure(figsize=(6, 6))
+        stats.probplot(residuals, dist="norm", plot=plt)
+        plt.title('Q-Q Plot')
+        st.pyplot(fig_qq)
+
+        # Feature Importance (if model supports it)
+        st.subheader('Feature Importance')
+
+        try:
+            if hasattr(pipeline.named_steps['model'], 'feature_importances_'):
+                importances = pipeline.named_steps['model'].feature_importances_
+                feature_names = X.columns
+                feature_importance_df = pd.DataFrame({
+                    'Feature': feature_names,
+                    'Importance': importances
+                }).sort_values(by='Importance', ascending=False)
+
+                fig_feature_importance = px.bar(
+                    feature_importance_df,
+                    x='Importance',
+                    y='Feature',
+                    orientation='h',
+                    title='Feature Importances',
+                    labels={'Importance': 'Importance', 'Feature': 'Feature'}
+                )
+                st.plotly_chart(fig_feature_importance)
+            elif hasattr(pipeline.named_steps['model'], 'coef_'):
+                coefficients = pipeline.named_steps['model'].coef_
+                feature_names = X.columns
+                coef_df = pd.DataFrame({
+                    'Feature': feature_names,
+                    'Coefficient': coefficients
+                }).sort_values(by='Coefficient', key=lambda x: x.abs(), ascending=False)
+
+                fig_coef = px.bar(
+                    coef_df,
+                    x='Coefficient',
+                    y='Feature',
+                    orientation='h',
+                    title='Model Coefficients',
+                    labels={'Coefficient': 'Coefficient', 'Feature': 'Feature'}
+                )
+                st.plotly_chart(fig_coef)
+            else:
+                st.write("The loaded model does not support feature importance extraction.")
+        except Exception as e:
+            st.error(f'Error extracting feature importance: {e}')
+
+        # Store evaluation data into session state (optional)
+        st.session_state['model_evaluation'] = {
+            'y_test': y_test,
+            'y_pred': y_pred,
+            'metrics': {
+                'MSE': mse,
+                'RMSE': rmse,
+                'MAE': mae,
+                'R2': r2
+            },
+            'residuals': residuals
+        }
+
+        # Optional: Download Evaluation Metrics as CSV
+        st.subheader('Download Evaluation Metrics')
+
+        metrics_df = pd.DataFrame({
+            'Metric': ['Mean Squared Error (MSE)', 'Root Mean Squared Error (RMSE)', 'Mean Absolute Error (MAE)', 'R² Score'],
+            'Value': [mse, rmse, mae, r2]
+        })
+
+        csv_metrics = metrics_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Download Metrics as CSV",
+            data=csv_metrics,
+            file_name='model_evaluation_metrics.csv',
+            mime='text/csv',
+        )
+
+        # Optional: Download Residuals as CSV
+        st.subheader('Download Residuals')
+
+        residuals_df = residuals.reset_index().rename(columns={'index': 'Index', 'cnt': 'Actual', 0: 'Predicted', 'residuals': 'Residual'})
+        residuals_df = pd.DataFrame({
+            'Actual': y_test,
+            'Predicted': y_pred,
+            'Residual': residuals
+        }).reset_index(drop=True)
+
+        csv_residuals = residuals_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Download Residuals as CSV",
+            data=csv_residuals,
+            file_name='model_residuals.csv',
+            mime='text/csv',
+        )
+
 
 # ====================== Simulator Tab ======================
 with tabs[4]:
