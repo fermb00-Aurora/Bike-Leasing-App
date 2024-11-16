@@ -8,4 +8,5 @@ pycaret
 lightgbm
 plotly
 fpdf
+llvmlite
 joblib
