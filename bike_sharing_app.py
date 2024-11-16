@@ -5,9 +5,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import pickle
 from pycaret.regression import load_model, predict_model
 from io import BytesIO
+from sklearn.preprocessing import PolynomialFeatures
 
 # Set the page configuration
 st.set_page_config(
@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Hide Streamlit style elements for a cleaner look (optional)
+# Optional: Hide Streamlit's default menu and footer for a cleaner look
 hide_streamlit_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -120,12 +120,9 @@ def process_data(df):
     # Binarized features for weather conditions
     bike_day['good_weather'] = bike_day['weather_condition'].apply(lambda x: 1 if x <= 2 else 0)
     
-    # Extract additional date-related features if needed
+    # Extract additional date-related features
     bike_day['hour_sin'] = np.sin(2 * np.pi * bike_day['hr'] / 24)
     bike_day['hour_cos'] = np.cos(2 * np.pi * bike_day['hr'] / 24)
-    
-    # Drop original 'hr' if not needed
-    # bike_day.drop('hr', axis=1, inplace=True)
     
     # Ensure no missing values remain
     bike_day.fillna(method='ffill', inplace=True)
@@ -365,7 +362,7 @@ elif options == "Prediction":
         bike_day['temp_squared'] = bike_day['temp'] ** 2
         bike_day['windspeed_squared'] = bike_day['windspeed'] ** 2
         
-        # Lag Feature (Assuming previous total_count is not available, use bfill with a placeholder)
+        # Lag Feature (Assuming previous total_count is not available, use a placeholder)
         bike_day['lag_total_count'] = 0  # Placeholder, as real lag requires historical data
         
         # Create 'daylight_hours' feature based on approximate daylight hours per month
@@ -408,9 +405,6 @@ elif options == "Prediction":
         # Extract additional date-related features
         bike_day['hour_sin'] = np.sin(2 * np.pi * bike_day['hr'] / 24)
         bike_day['hour_cos'] = np.cos(2 * np.pi * bike_day['hr'] / 24)
-        
-        # Drop original 'hr' if not needed
-        # bike_day.drop('hr', axis=1, inplace=True)
         
         # Ensure no missing values
         bike_day.fillna(method='ffill', inplace=True)
@@ -554,4 +548,3 @@ elif options == "Feedback":
         # For demonstration, we'll simply display a success message.
         # In a real application, you might want to save this to a database or send an email.
         st.success("Thank you for your feedback!")
-
