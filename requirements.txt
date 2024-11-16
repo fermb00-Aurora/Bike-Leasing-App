@@ -8,4 +8,6 @@ pycaret==3.3.2
 lightgbm==4.1.2
 plotly==5.15.0
 fpdf==1.7.2
+joblib==1.2.0
+
 
