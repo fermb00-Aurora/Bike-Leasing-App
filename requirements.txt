@@ -1,10 +1,22 @@
-streamlit
-joblib
+# Core libraries
 pandas
 numpy
+scipy
+
+# Visualization libraries
 matplotlib
 seaborn
-scikit-learn
 plotly
+
+# Machine learning libraries
+scikit-learn
+joblib
+
+# Web application framework
+streamlit
+
+# PDF generation
 fpdf
-scipy
+
+# System utilities
+os-sys
