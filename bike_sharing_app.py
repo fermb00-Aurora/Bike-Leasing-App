@@ -22,12 +22,14 @@ def load_model():
         st.error(f"Model file not found at {model_path}. Please ensure the model is in the correct directory.")
         st.stop()
     try:
-        model = joblib.load(model_path)
+        # Use fix_imports=True to handle potential import errors
+        model = joblib.load(model_path, fix_imports=True)
         st.success("Model loaded successfully!")
         return model
     except Exception as e:
         st.error(f"Error loading model: {e}")
         st.stop()
+
 
 # Load the model
 model = load_model()
