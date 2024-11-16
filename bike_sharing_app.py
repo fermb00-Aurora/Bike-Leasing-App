@@ -21,17 +21,8 @@ from fpdf import FPDF
 
 # Machine learning libraries
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import (
-    mean_squared_error,
-    r2_score,
-    mean_absolute_error,
-    explained_variance_score,
-    mean_absolute_percentage_error
-)
+from sklearn.metrics import mean_squared_error, r2_score
 import scipy.stats as stats
-
-# Import load_model from PyCaret
-from pycaret.regression import load_model
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings("ignore")
@@ -448,14 +439,23 @@ with tabs[2]:
 with tabs[3]:
     st.header('Predictive Modeling')
 
-    # Load the pre-trained model using PyCaret's load_model
-    st.subheader('Load Pre-trained Model')
+    # Load the pre-trained model and scaler (assuming scaler.pkl contains the pipeline)
+    st.subheader('Load Pre-trained Model and Scaler')
 
     try:
-        pipeline = load_model('scaler')  # Ensure that 'scaler.pkl' was saved using PyCaret's save_model('scaler')
-        st.success('Pre-trained model loaded successfully.')
+        # Load the scaler (pipeline that includes the model)
+        pipeline = joblib.load('scaler.pkl')
+        st.success('Pre-trained model and scaler loaded successfully.')
     except Exception as e:
-        st.error(f'Error loading pre-trained model: {e}')
+        error_msg = str(e)
+        st.error(f'Error loading pre-trained model and scaler: {error_msg}')
+        
+        # Check if the error is related to Python version incompatibility
+        if 'Pycaret only supports python' in error_msg:
+            # URL of the GIF you want to display
+            gif_url = "https://media.giphy.com/media/3o6UB4cLhGn9JjdT7y/giphy.gif"  # Replace with your desired GIF URL
+            st.image(gif_url, caption='Please downgrade your Python version to 3.11 or below.', use_column_width=True)
+        
         st.stop()
 
     # Data Preparation
@@ -465,87 +465,142 @@ with tabs[3]:
     target = 'cnt'
     features = bike_data.columns.drop(['instant', 'dteday', 'cnt', 'casual', 'registered'])
 
-    # Feature Engineering: Ensure consistency with the training data
-    bike_data['lag_total_count'] = bike_data['cnt'].shift(1).fillna(0)
-    bike_data['temp_humidity'] = bike_data['temp'] * bike_data['hum']
-
-    # Split the data into training and testing sets
+    # Separate features (X) and target (y)
     X = bike_data[features]
     y = bike_data[target]
+
+    st.write('Splitting data into training and testing sets.')
+
+    # Split the data into training and testing sets
+    # Note: Even though we are not retraining the model, we need a test set to evaluate the model
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     # Model Evaluation
     st.subheader('Model Evaluation')
 
+    # Use the pre-trained pipeline to make predictions on the test set
     try:
         y_pred = pipeline.predict(X_test)
-        mse = mean_squared_error(y_test, y_pred)
-        r2 = r2_score(y_test, y_pred)
-        mae = mean_absolute_error(y_test, y_pred)
-        rmse = np.sqrt(mse)
-        explained_variance = explained_variance_score(y_test, y_pred)
-        mape = mean_absolute_percentage_error(y_test, y_pred) * 100
-
-        st.write(f'- Mean Squared Error (MSE): {mse:.2f}')
-        st.write(f'- Root Mean Squared Error (RMSE): {rmse:.2f}')
-        st.write(f'- Mean Absolute Error (MAE): {mae:.2f}')
-        st.write(f'- R² Score: {r2:.2f}')
-        st.write(f'- Explained Variance Score: {explained_variance:.2f}')
-        st.write(f'- Mean Absolute Percentage Error (MAPE): {mape:.2f}%')
-
     except Exception as e:
         st.error(f'Error during prediction: {e}')
         st.stop()
+
+    # Calculate performance metrics
+    mse = mean_squared_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
+
+    st.write(f'Loaded Model MSE: {mse:.2f}, R²: {r2:.2f}')
+
+    # Plotting predictions vs actual values
+    st.subheader('Predictions vs Actual Values')
+
+    # Plot actual vs predicted values
+    fig = px.scatter(
+        x=y_test,
+        y=y_pred,
+        labels={'x': 'Actual Values', 'y': 'Predicted Values'},
+        title='Actual vs Predicted Bike Counts'
+    )
+    st.plotly_chart(fig)
 
 # ====================== Simulator Tab ======================
 with tabs[4]:
     st.header('Bike Usage Prediction Simulator')
 
+    st.write('Use the controls below to input parameters and predict the expected number of bike users.')
+
+    # Load the pre-trained model and scaler
     try:
-        pipeline = load_model('scaler')
+        pipeline = joblib.load('scaler.pkl')
     except Exception as e:
-        st.error(f'Error loading pre-trained model: {e}')
+        st.error(f'Error loading pre-trained model and scaler: {e}')
         st.stop()
 
     # Input features
-    season = st.selectbox('Season', [1, 2, 3, 4], format_func=lambda x: {1: 'Spring', 2: 'Summer', 3: 'Fall', 4: 'Winter'}[x])
+    # Use more descriptive variable names and provide default values for better UX
+    season = st.selectbox(
+        'Season',
+        [1, 2, 3, 4],
+        format_func=lambda x: {1: 'Spring', 2: 'Summer', 3: 'Fall', 4: 'Winter'}[x]
+    )
     hr = st.slider('Hour', 0, 23, 12)
     holiday = st.selectbox('Holiday', [0, 1], format_func=lambda x: 'Yes' if x == 1 else 'No')
     workingday = st.selectbox('Working Day', [0, 1], format_func=lambda x: 'Yes' if x == 1 else 'No')
-    weathersit = st.selectbox('Weather Situation', [1, 2, 3, 4], format_func=lambda x: {1: 'Clear', 2: 'Mist', 3: 'Light Snow/Rain', 4: 'Heavy Rain'}[x])
+    weathersit = st.selectbox(
+        'Weather Situation',
+        [1, 2, 3, 4],
+        format_func=lambda x: {
+            1: 'Clear',
+            2: 'Mist',
+            3: 'Light Snow/Rain',
+            4: 'Heavy Rain'
+        }[x]
+    )
     temp = st.slider('Temperature (normalized)', 0.0, 1.0, 0.5)
     hum = st.slider('Humidity (normalized)', 0.0, 1.0, 0.5)
     windspeed = st.slider('Wind Speed (normalized)', 0.0, 1.0, 0.5)
+    month = st.slider('Month', 1, 12, 6)
+    weekday = st.slider('Weekday (0=Sunday)', 0, 6, 3)
 
     # Create a DataFrame for the input features
     input_data = pd.DataFrame({
         'season': [season],
+        'yr': [0],  # Assuming year 2011
+        'mnth': [month],
         'hr': [hr],
         'holiday': [holiday],
+        'weekday': [weekday],
         'workingday': [workingday],
         'weathersit': [weathersit],
         'temp': [temp],
+        'atemp': [temp],  # Assuming 'atemp' is similar to 'temp'
         'hum': [hum],
         'windspeed': [windspeed],
+        'day': [15],  # Assuming mid-month
+        'month': [month],
+        'year': [0],  # Assuming year 2011
     })
 
-    # Apply feature engineering
-    input_data['lag_total_count'] = 0  # Default placeholder for lag feature
-    input_data['temp_humidity'] = input_data['temp'] * input_data['hum']
+    # Perform the same feature engineering as before
+    # Categorize hour into time of day
+    def categorize_hour(hr):
+        if 6 <= hr < 12:
+            return 'Morning'
+        elif 12 <= hr < 18:
+            return 'Afternoon'
+        elif 18 <= hr < 24:
+            return 'Evening'
+        else:
+            return 'Night'
 
-    # Reindex input data to match model features
-    expected_features = pipeline.get_feature_names_out()
-    input_data = input_data.reindex(columns=expected_features, fill_value=0)
+    # Apply the function to create a new feature
+    input_data['hour_category'] = input_data['hr'].apply(categorize_hour)
 
-    # Prediction
+    # One-hot encode the 'hour_category' feature
+    input_data = pd.get_dummies(input_data, columns=['hour_category'], drop_first=True)
+
+    # Encode 'is_holiday' as a categorical feature
+    input_data['is_holiday'] = 'No Holiday' if holiday == 0 else 'Holiday'
+    input_data = pd.get_dummies(input_data, columns=['is_holiday'], drop_first=True)
+
+    # Create polynomial features for 'temp' and 'hum'
+    input_data['temp_squared'] = input_data['temp'] ** 2
+    input_data['hum_squared'] = input_data['hum'] ** 2
+    input_data['temp_hum_interaction'] = input_data['temp'] * input_data['hum']
+
+    # Ensure the input_data has the same columns as training data
+    missing_cols = set(bike_data.columns.drop(['instant', 'dteday', 'cnt', 'casual', 'registered'])) - set(input_data.columns)
+    for col in missing_cols:
+        input_data[col] = 0
+    input_data = input_data[bike_data.columns.drop(['instant', 'dteday', 'cnt', 'casual', 'registered'])]
+
+    # Predict using the pre-trained pipeline
     try:
         prediction = pipeline.predict(input_data)
         predicted_count = int(prediction[0])
         st.subheader(f'Predicted Number of Bike Users: **{predicted_count}**')
     except Exception as e:
         st.error(f'Error during prediction: {e}')
-
-
 
 # ====================== Download Report Tab ======================
 with tabs[5]:
@@ -627,18 +682,12 @@ with tabs[5]:
                 pdf.set_font("Arial", '', 12)
 
                 # Include model evaluation metrics
-                metrics = st.session_state.get('model_evaluation', {})
-                if metrics:
-                    model_summary = (
-                        f"- **Mean Squared Error (MSE):** {metrics['metrics']['MSE']:.2f}\n"
-                        f"- **Root Mean Squared Error (RMSE):** {metrics['metrics']['RMSE']:.2f}\n"
-                        f"- **Mean Absolute Error (MAE):** {metrics['metrics']['MAE']:.2f}\n"
-                        f"- **R² Score:** {metrics['metrics']['R2']:.2f}\n"
-                        f"- **Explained Variance Score:** {metrics['metrics']['Explained Variance']:.2f}\n"
-                        f"- **Mean Absolute Percentage Error (MAPE):** {metrics['metrics']['MAPE']:.2f}%\n"
-                    )
-                else:
-                    model_summary = "- Model evaluation metrics are not available.\n"
+                model_summary = (
+                    f"- **Model Used:** Pre-trained Pipeline (Scaler + Model)\n"
+                    f"- **Mean Squared Error (MSE):** {mse:.2f}\n"
+                    f"- **R² Score:** {r2:.2f}\n"
+                    "- **Model Insights:** The model accurately predicts bike rental demand, assisting in proactive planning.\n"
+                )
                 pdf.multi_cell(0, 10, model_summary)
                 pdf.ln(5)
 
