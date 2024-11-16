@@ -89,27 +89,7 @@ elif page_selection == "Feature Engineering":
     st.dataframe(df.head())
     st.markdown("Cyclical features and interaction terms have been added.")
 
-# Prediction Page
-elif page_selection == "Prediction":
-    st.header("Make a Prediction 🧠")
-    st.markdown("Provide the input features to get a prediction for bike rentals.")
 
-    # Input fields
-    season = st.selectbox("Season", [1, 2, 3, 4])
-    month = st.slider("Month", 1, 12, 6)
-    hour = st.slider("Hour", 0, 23, 12)
-    holiday = st.selectbox("Holiday", [0, 1])
-    workingday = st.selectbox("Working Day", [0, 1])
-    temp = st.slider("Temperature", 0.0, 1.0, 0.5)
-    humidity = st.slider("Humidity", 0.0, 1.0, 0.5)
-    windspeed = st.slider("Windspeed", 0.0, 1.0, 0.2)
-
-    input_data = pd.DataFrame([[season, month, hour, holiday, workingday, temp, humidity, windspeed]],
-                              columns=['season', 'mnth', 'hr', 'holiday', 'workingday', 'temp', 'hum', 'windspeed'])
-
-    # Make prediction
-    prediction = model.predict(input_data)[0]
-    st.success(f"Predicted Bike Rentals: {int(prediction)}")
 
 # Simulator Page
 elif page_selection == "Simulator":
