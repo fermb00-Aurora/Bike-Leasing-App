@@ -1,16 +1,2 @@
-# .streamlit/config.toml
-
-[server]
-headless = true
-port = 8501
-enableCORS = false
-enableXsrfProtection = false
-
-[theme]
-base = "light"
-primaryColor = "#4a90e2"
-font = "sans serif"
-
 [python]
 version = "3.10"
-
