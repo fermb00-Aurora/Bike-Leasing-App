@@ -21,8 +21,17 @@ from fpdf import FPDF
 
 # Machine learning libraries
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import (
+    mean_squared_error,
+    r2_score,
+    mean_absolute_error,
+    explained_variance_score,
+    mean_absolute_percentage_error
+)
 import scipy.stats as stats
+
+# Import load_model from PyCaret
+from pycaret.regression import load_model
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings("ignore")
@@ -438,29 +447,29 @@ with tabs[2]:
 # ====================== Predictive Modeling Tab ======================
 with tabs[3]:
     st.header('Predictive Modeling')
-    
-    # Load the pre-trained model and scaler (assuming scaler.pkl contains the pipeline)
-    st.subheader('Load Pre-trained Model and Scaler')
-    
+
+    # Load the pre-trained model using PyCaret's load_model
+    st.subheader('Load Pre-trained Model')
+
     try:
-        # Load the scaler (pipeline that includes the model)
-        pipeline = joblib.load('scaler.pkl')
-        st.success('Pre-trained model and scaler loaded successfully.')
+        # Replace 'scaler' with the actual name used during model saving
+        pipeline = load_model('scaler')  # Ensure that 'scaler.pkl' was saved using PyCaret's save_model('scaler')
+        st.success('Pre-trained model loaded successfully.')
     except FileNotFoundError:
-        st.error("File 'scaler.pkl' not found. Please ensure it is in the correct directory.")
+        st.error("Model file 'scaler.pkl' not found. Please ensure the file is in the correct directory.")
         st.stop()
     except ImportError as ie:
         st.error(f'Import Error: {ie}')
         st.stop()
     except Exception as e:
         error_msg = str(e)
-        st.error(f'Error loading pre-trained model and scaler: {error_msg}')
+        st.error(f'Error loading pre-trained model: {error_msg}')
 
         # Check if the error is related to Python version incompatibility
         if 'Pycaret only supports python' in error_msg:
             # URL of the GIF you want to display
             gif_url = "https://media.giphy.com/media/3o6UB4cLhGn9JjdT7y/giphy.gif"  # Replace with your desired GIF URL
-            st.image(gif_url, caption='Please downgrade your Python version to 3.11 or below.', use_column_width=True)
+            st.image(gif_url, caption='Please downgrade your Python version to 3.10.9.', use_column_width=True)
 
         st.stop()
 
@@ -498,6 +507,8 @@ with tabs[3]:
     r2 = r2_score(y_test, y_pred)
     mae = mean_absolute_error(y_test, y_pred)
     rmse = np.sqrt(mse)
+    explained_variance = explained_variance_score(y_test, y_pred)
+    mape = mean_absolute_percentage_error(y_test, y_pred) * 100
 
     # Display performance metrics
     st.write(f'**Loaded Model Performance:**')
@@ -508,8 +519,8 @@ with tabs[3]:
 
     # Additional Metrics (Optional)
     st.write(f'**Additional Metrics:**')
-    st.write(f'- Explained Variance Score: {explained_variance_score(y_test, y_pred):.2f}')
-    st.write(f'- Mean Absolute Percentage Error (MAPE): {mean_absolute_percentage_error(y_test, y_pred)*100:.2f}%')
+    st.write(f'- Explained Variance Score: {explained_variance:.2f}')
+    st.write(f'- Mean Absolute Percentage Error (MAPE): {mape:.2f}%')
 
     # Plotting Predicted vs Actual Values
     st.subheader('📊 Predicted vs Actual Values')
@@ -568,12 +579,11 @@ with tabs[3]:
             'RMSE': rmse,
             'MAE': mae,
             'R2': r2,
-            'Explained Variance': explained_variance_score(y_test, y_pred),
-            'MAPE': mean_absolute_percentage_error(y_test, y_pred) * 100
+            'Explained Variance': explained_variance,
+            'MAPE': mape
         },
         'residuals': residuals
     }
-
 
 # ====================== Simulator Tab ======================
 with tabs[4]:
@@ -581,9 +591,9 @@ with tabs[4]:
 
     st.write('Use the controls below to input parameters and predict the expected number of bike users.')
 
-    # Load the pre-trained model and scaler
+    # Load the pre-trained model using PyCaret's load_model
     try:
-        pipeline = joblib.load('scaler.pkl')
+        pipeline = load_model('scaler')  # Ensure that 'scaler.pkl' was saved using PyCaret's save_model('scaler')
     except Exception as e:
         st.error(f'Error loading pre-trained model and scaler: {e}')
         st.stop()
@@ -754,12 +764,18 @@ with tabs[5]:
                 pdf.set_font("Arial", '', 12)
 
                 # Include model evaluation metrics
-                model_summary = (
-                    f"- **Model Used:** Pre-trained Pipeline (Scaler + Model)\n"
-                    f"- **Mean Squared Error (MSE):** {mse:.2f}\n"
-                    f"- **R² Score:** {r2:.2f}\n"
-                    "- **Model Insights:** The model accurately predicts bike rental demand, assisting in proactive planning.\n"
-                )
+                metrics = st.session_state.get('model_evaluation', {})
+                if metrics:
+                    model_summary = (
+                        f"- **Mean Squared Error (MSE):** {metrics['metrics']['MSE']:.2f}\n"
+                        f"- **Root Mean Squared Error (RMSE):** {metrics['metrics']['RMSE']:.2f}\n"
+                        f"- **Mean Absolute Error (MAE):** {metrics['metrics']['MAE']:.2f}\n"
+                        f"- **R² Score:** {metrics['metrics']['R2']:.2f}\n"
+                        f"- **Explained Variance Score:** {metrics['metrics']['Explained Variance']:.2f}\n"
+                        f"- **Mean Absolute Percentage Error (MAPE):** {metrics['metrics']['MAPE']:.2f}%\n"
+                    )
+                else:
+                    model_summary = "- Model evaluation metrics are not available.\n"
                 pdf.multi_cell(0, 10, model_summary)
                 pdf.ln(5)
 
@@ -829,6 +845,7 @@ with tabs[7]:
     - **Pandas**: For data manipulation and cleaning.
     - **NumPy**: For numerical computations.
     - **Scikit-learn**: For machine learning modeling.
+    - **PyCaret**: For simplifying machine learning workflows.
     - **Matplotlib & Seaborn**: For data visualization.
     - **Plotly**: For interactive visualizations.
     - **Streamlit**: For creating the web application.
