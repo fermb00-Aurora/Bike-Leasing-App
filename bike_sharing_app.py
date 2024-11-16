@@ -31,19 +31,18 @@ st.markdown("""
 Welcome to the interactive dashboard for the Washington D.C. bike-sharing service analysis. This tool provides insights into the usage patterns of the bike-sharing service and includes recommendations on whether it's a good day to rent a bike based on your input parameters.
 """)
 
-# ====================== Load the Dataset ======================
-file_path = 'hour.csv'
+# ====================== Load the Pre-trained Model ======================
+import tempfile
 
 try:
-    bike_data = pd.read_csv(file_path)
-except FileNotFoundError:
-    st.error("Dataset 'hour.csv' not found. Please ensure the file is in the correct directory.")
-    st.stop()
-except pd.errors.EmptyDataError:
-    st.error("Dataset 'hour.csv' is empty. Please provide a valid dataset.")
-    st.stop()
+    # Use a temporary file for loading the model to ensure compatibility
+    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+        tmp_file.write(open('scaler.pkl', 'rb').read())
+        model = joblib.load(tmp_file.name)
+    st.success('Pre-trained model loaded successfully.')
+
 except Exception as e:
-    st.error(f"An error occurred while loading the dataset: {e}")
+    st.error(f"Error loading pre-trained model: {e}")
     st.stop()
 
 # ====================== Load the Pre-trained Model ======================
